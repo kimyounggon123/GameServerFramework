@@ -3,11 +3,31 @@
 
 #include "SOCKETINFO.h"
 
+class RoomExpand : public Room
+{
+	ThreadSafeQueue<Packet*> broadcastQueue;
+public:
+	RoomExpand(): Room(), broadcastQueue(false)
+	{ }
+	bool EnqueueBroadcast(Packet*& input)
+	{
+		return broadcastQueue.enqueue(input);
+	}
+	bool DequeueBroadcast(Packet*& output)
+	{
+		return broadcastQueue.dequeue(output);
+	}
+};
+
+
+
 class RoomManager
 {
 	static RoomManager* instance;
-
 	std::atomic<int> nextID;
+
+	ThreadSafeQueue<RoomExpand*> broadcastLine;
+
 	IOCPSessionManager& allClients;
 
 	RoomManager() :
