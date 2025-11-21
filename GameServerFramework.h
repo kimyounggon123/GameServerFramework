@@ -11,7 +11,7 @@ class GameServerFramework : public ServerFramework
 {
 	BroadcastManager* broadcaster;
 
-	USHORT dbPort;
+	USHORT DBport;
 	DBconnector* dbConnector;
 
 
@@ -19,8 +19,10 @@ class GameServerFramework : public ServerFramework
 	bool Start() override;
 	void Quit() override;
 public:
-	GameServerFramework(PacketProcess* packetProc = nullptr, USHORT serverPort = 1000, USHORT dbPort = 1001):
-		ServerFramework(packetProc, serverPort), broadcaster(nullptr), dbPort(dbPort), dbConnector(nullptr),
+	GameServerFramework(PacketProcess* packetProc = nullptr,
+		USHORT portTCP = 1000, USHORT portUDP = 1001, USHORT DBport = 1002):
+		ServerFramework(packetProc, portTCP, portUDP),
+		broadcaster(nullptr), DBport(DBport), dbConnector(nullptr),
 		gameDispatcher(GameDispatcher::getInstance())
 	{ }
 	~GameServerFramework()

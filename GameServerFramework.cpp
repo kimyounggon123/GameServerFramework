@@ -5,7 +5,7 @@ bool GameServerFramework::initialize()
 	if (!ServerFramework::initialize()) return false;
 	try
 	{
-		broadcaster = new BroadcastManager(5);
+		broadcaster = new BroadcastManager(5, iocp->GetUDPSocket());
 		if (!broadcaster || !broadcaster->initialize()) throw "broadcaster";
 	}
 	catch (const char* msg)
@@ -19,7 +19,7 @@ bool GameServerFramework::initialize()
 
 bool GameServerFramework::TurnOnDBconnector()
 {
-	dbConnector = new DBconnector(dbPort);
+	dbConnector = new DBconnector(DBport);
 	if (!dbConnector || !dbConnector->initialize()) return false;
 	return true;
 }

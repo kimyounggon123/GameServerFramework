@@ -13,7 +13,6 @@ bool BroadcastManager::SendAllRoomMember(BroadcastInformation* info)
 	std::vector<SOCKETINFO*> members;
 	info->room->CopyMemberPointers(members);
 
-
 	INT retval;
 	DWORD sendbytes;
 
@@ -37,14 +36,37 @@ bool BroadcastManager::SendAllRoomMember(BroadcastInformation* info)
 				if (waitResult == WAIT_FAILED) throw "waitSendEvent() failed";
 			}
 
-			retval = WSASend(ptr->sock, &ptr->response.wsabuf, 1, &sendbytes,
-				0, &ptr->response.overlapped, NULL);
-			if (retval == SOCKET_ERROR) {
-				if (WSAGetLastError() != WSA_IO_PENDING)
-				{
-					throw "WSASend()";
+			if (ptr->sessionType == SESSION_TYPE::TCP)
+			{
+				retval = WSASend(ptr->sock, &ptr->response.wsabuf, 1, &sendbytes,
+					0, &ptr->response.overlapped, NULL);
+				if (retval == SOCKET_ERROR) {
+					if (WSAGetLastError() != WSA_IO_PENDING)
+					{
+						throw "WSASend()";
+					}
 				}
 			}
+			if (ptr->sessionType == SESSION_TYPE::UDP)
+			{
+				// Sending data
+				retval = WSASendTo(sockUDP,
+					&ptr->response.wsabuf,
+					1,
+					&sendbytes,
+					0,
+					(SOCKADDR*)&ptr->addr,
+					sizeof(SOCKADDR_IN),
+					&ptr->response.overlapped,
+					NULL);
+				if (retval == SOCKET_ERROR) {
+					if (WSAGetLastError() != WSA_IO_PENDING)
+					{
+						throw "WSASendTo()";
+					}
+				}
+			}
+
 			ptr->addResponseCount();
 		}
 		catch (const char* msg)

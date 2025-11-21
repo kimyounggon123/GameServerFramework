@@ -79,7 +79,7 @@ class PacketGameProcess : public PacketProcess
 	GameDispatcher& gameDispatcher;
 	RoomManager& roomManager;
 
-	bool BroadCastThis(TaskQueueInput* input, int RoomID = -1);
+	bool BroadCastThis(TaskQueueInput* input, int RoomID = 0);
 
 	bool FireBullet(TaskQueueInput* input);
 public:
