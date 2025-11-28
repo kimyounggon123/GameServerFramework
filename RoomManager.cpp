@@ -11,16 +11,6 @@ bool GameRoom::DequeueBroadcast(Packet*& output)
 }
 
 
-
-
-
-
-
-
-
-
-
-
 Room* RoomManager::GetRoom(int num)
 {
 	if (num == 0) return &allClients;

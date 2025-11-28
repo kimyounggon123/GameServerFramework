@@ -74,6 +74,9 @@ public:
 };
 
 
+
+static constexpr PacketType FireBullet = 1;
+
 class PacketGameProcess : public PacketProcess
 {
 	GameDispatcher& gameDispatcher;
@@ -81,7 +84,7 @@ class PacketGameProcess : public PacketProcess
 
 	bool BroadCastThis(TaskQueueInput* input, int RoomID = 0);
 
-	bool FireBullet(TaskQueueInput* input);
+	bool SomeoneFireBullet(TaskQueueInput* input);
 public:
 	PacketGameProcess(): PacketProcess(), gameDispatcher(GameDispatcher::getInstance()), roomManager(RoomManager::getInstance())
 	{}

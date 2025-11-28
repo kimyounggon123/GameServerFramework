@@ -51,6 +51,9 @@
     <ClCompile Include="RoomManager.cpp">
       <Filter>소스 파일\Room</Filter>
     </ClCompile>
+    <ClCompile Include="PacketIDExpand.cpp">
+      <Filter>소스 파일\Packet</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="PacketGameProcess.h">
@@ -67,6 +70,9 @@
     </ClInclude>
     <ClInclude Include="RoomManager.h">
       <Filter>헤더 파일\Room</Filter>
+    </ClInclude>
+    <ClInclude Include="PacketIDExpand.h">
+      <Filter>헤더 파일\Packet</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
