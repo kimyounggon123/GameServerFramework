@@ -75,7 +75,6 @@ public:
 
 
 
-static constexpr PacketType FireBullet = 1;
 
 class PacketGameProcess : public PacketProcess
 {
