@@ -3,6 +3,8 @@
 
 #include "PacketProcess.h"
 #include "RoomManager.h"
+#include "PacketIDExpand.h"
+
 struct BroadcastInformation
 {
 	Room* room;

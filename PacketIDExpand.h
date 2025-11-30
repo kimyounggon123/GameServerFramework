@@ -6,8 +6,11 @@
 struct PacketTypeGame
 {
 	static constexpr int32_t Base = 1000;
-	static constexpr int32_t Default = Base + 0;
-	static constexpr int32_t ServerIsClosed = Base + 1;
+	static int count;
+	static int Next() { return count++; }
+
+	static const int32_t Hello;
+	static const int32_t FireBullet;
 };
 
 

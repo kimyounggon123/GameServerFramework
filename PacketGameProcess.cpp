@@ -82,7 +82,7 @@ void PacketGameProcess::initialize()
 	PacketProcess::initialize();
 
 	func_map.emplace(
-		PacketProcessKey{ FireBullet, Try },
+		PacketProcessKey{ PacketTypeGame::FireBullet, PacketResult::Try },
 		[this](TaskQueueInput* input) {return SomeoneFireBullet(input); }
 	);
 
@@ -103,7 +103,7 @@ bool PacketGameProcess::BroadCastThis(TaskQueueInput* input, int RoomID)
 		if (!forBroadcast->room) throw "room nullptr";
 
 		*forBroadcast->packet = *input->packet; // deep copy
-		forBroadcast->packet->set_process_result(BroadCast);
+		forBroadcast->packet->set_process_result(PacketResult::BroadCast);
 		if (!gameDispatcher.InputBroadCastTask(forBroadcast)) throw "InputBroadcastTask()";
 	}
 	catch (const char* msg)
@@ -123,12 +123,12 @@ bool PacketGameProcess::SomeoneFireBullet(TaskQueueInput* input)
 	{
 		gameDispatcher.InputDBTask(input); //작업을 DB에 저장하기 위해 전송함
 		BroadCastThis(input, 0); // 특정 작업을 타 클라이언트에게 broadcast (0: Global broadcasting)
-		input->packet->set_process_result(Success);
+		input->packet->set_process_result(PacketResult::Success);
 	}
 	catch (const char* msg)
 	{
 		logs.log_error(msg, "FireBullet");
-		input->packet->set_process_result(Fail);
+		input->packet->set_process_result(PacketResult::Fail);
 		return false;
 	}
 
