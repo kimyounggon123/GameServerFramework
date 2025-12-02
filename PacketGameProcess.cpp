@@ -123,7 +123,7 @@ bool PacketGameProcess::SomeoneFireBullet(TaskQueueInput* input)
 	{
 		logs.log("msg", "FireBullet");
 		//gameDispatcher.InputDBTask(input); //작업을 DB에 저장하기 위해 전송함
-		//BroadCastThis(input, 0); // 특정 작업을 타 클라이언트에게 broadcast (0: Global broadcasting)
+		BroadCastThis(input, 0); // 특정 작업을 타 클라이언트에게 broadcast (0: Global broadcasting)
 		input->packet->set_process_result(PacketResult::Success);
 	}
 	catch (const char* msg)

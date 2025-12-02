@@ -9,8 +9,9 @@ struct BroadcastInformation
 {
 	Room* room;
 	Packet* packet;
-	BroadcastInformation() :
-		room(nullptr), packet(new Packet())
+	SESSION_TYPE sessionType;
+	BroadcastInformation(SESSION_TYPE s = SESSION_TYPE::TCP) :
+		room(nullptr), packet(new Packet()), sessionType(s)
 	{}
 	~BroadcastInformation()
 	{
