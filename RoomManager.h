@@ -44,9 +44,14 @@ class RoomManager
 
 	RoomManager() :
 		nextID(0),
-		allClients(IOCPSessionManager::getInstance())
+		allClients(IOCPSessionManager::getInstance()),
+		broadcastLine(INFINITE)
 	{}
 public:
+	~RoomManager()
+	{ 
+		allClients.deleteUDPSOCKET();
+	}
 	static RoomManager& getInstance()
 	{
 		if (instance == nullptr) instance = new RoomManager;

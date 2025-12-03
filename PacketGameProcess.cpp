@@ -76,20 +76,7 @@ bool GameDispatcher::PushTaskToBroadCastPool(BroadcastInformation*& src)
 	return BroadCastpool.push(src);
 }
 
-
-void PacketGameProcess::initialize()
-{
-	PacketProcess::initialize();
-
-	func_map.emplace(
-		PacketProcessKey{ PacketTypeGame::FireBullet, PacketResult::Try },
-		[this](TaskQueueInput* input) {return SomeoneFireBullet(input); }
-	);
-
-	isInitialized = true;
-}
-
-bool PacketGameProcess::BroadCastThis(TaskQueueInput* input, int RoomID)
+bool PacketGameProcess::BroadCastThis(TaskQueueInput* input, int RoomID, SESSION_TYPE type)
 {
 	BroadcastInformation* forBroadcast = nullptr;
 
@@ -102,7 +89,10 @@ bool PacketGameProcess::BroadCastThis(TaskQueueInput* input, int RoomID)
 		forBroadcast->room = roomManager.GetRoom(RoomID);
 		if (!forBroadcast->room) throw "room nullptr";
 
+		forBroadcast->sessionType = type;
 		*forBroadcast->packet = *input->packet; // deep copy
+
+
 		forBroadcast->packet->set_process_result(PacketResult::BroadCast);
 		if (!gameDispatcher.InputBroadCastTask(forBroadcast)) throw "InputBroadcastTask()";
 	}
@@ -116,14 +106,81 @@ bool PacketGameProcess::BroadCastThis(TaskQueueInput* input, int RoomID)
 	return true;
 }
 
+void PacketGameProcess::initialize()
+{
+	PacketProcess::initialize();
+
+	func_map.emplace(
+		PacketProcessKey{ PacketTypeGame::Hello, PacketResult::Try },
+		[this](TaskQueueInput* input) {return HelloClient(input); }
+	);
+	func_map.emplace(
+		PacketProcessKey{ PacketTypeGame::Move, PacketResult::Try },
+		[this](TaskQueueInput* input) {return Move(input); }
+	);
+	func_map.emplace(
+		PacketProcessKey{ PacketTypeGame::FireBullet, PacketResult::Try },
+		[this](TaskQueueInput* input) {return SomeoneFireBullet(input); }
+	);
+
+	isInitialized = true;
+}
+
+
+
+bool PacketGameProcess::HelloClient(TaskQueueInput* input)
+{
+	try
+	{
+		input->packet->setClientID(input->sessionInfo->id);
+
+		std::vector<SOCKETINFO*> allClient;
+		Room* room = roomManager.GetRoom(0);
+		room->CopySOCKETINFOPointers(allClient);
+
+		size_t offset = 0;
+		for (SOCKETINFO* info : allClient)
+		{
+			if (!info->acceptCompleted || info->isBroadcast) continue;
+			input->packet->inputDataInt(info->id, offset);
+		}
+
+		if (!BroadCastThis(input, 0, SESSION_TYPE::TCP)) throw "Broadcast Fail!";
+		input->packet->set_process_result(PacketResult::Success);
+	}
+	catch (const char* msg)
+	{
+		logs.log_error(msg, "HelloClient()");
+		input->packet->set_process_result(PacketResult::Fail);
+		return false;
+	}
+
+	return true;
+}
+
+bool PacketGameProcess::Move(TaskQueueInput* input)
+{
+	try
+	{
+		if (!BroadCastThis(input, 0, SESSION_TYPE::UDP)) throw "Broadcast Fail!";
+		input->packet->set_process_result(PacketResult::Success);
+	}
+	catch (const char* msg)
+	{
+		logs.log_error(msg, "Move");
+		input->packet->set_process_result(PacketResult::Fail);
+		return false;
+	}
+
+	return true;
+}
 
 bool PacketGameProcess::SomeoneFireBullet(TaskQueueInput* input)
 {
 	try
 	{
-		logs.log("msg", "FireBullet");
 		//gameDispatcher.InputDBTask(input); //작업을 DB에 저장하기 위해 전송함
-		BroadCastThis(input, 0); // 특정 작업을 타 클라이언트에게 broadcast (0: Global broadcasting)
+		BroadCastThis(input, 0, SESSION_TYPE::UDP); // 특정 작업을 타 클라이언트에게 broadcast (0: Global broadcasting)
 		input->packet->set_process_result(PacketResult::Success);
 	}
 	catch (const char* msg)
