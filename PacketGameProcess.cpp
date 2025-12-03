@@ -1,5 +1,6 @@
 #include "PacketGameProcess.h"
 GameDispatcher* GameDispatcher::instance = nullptr;
+
 bool GameDispatcher::Initialize()
 {
 	if (isInitialized) return isInitialized;
@@ -109,18 +110,34 @@ bool PacketGameProcess::BroadCastThis(TaskQueueInput* input, int RoomID, SESSION
 void PacketGameProcess::initialize()
 {
 	PacketProcess::initialize();
-
 	func_map.emplace(
 		PacketProcessKey{ PacketTypeGame::Hello, PacketResult::Try },
-		[this](TaskQueueInput* input) {return HelloClient(input); }
+		[this](TaskQueueInput* input) {return Hello(input); }
 	);
+
+	func_map.emplace(
+		PacketProcessKey{ PacketTypeGame::Bye, PacketResult::Try },
+		[this](TaskQueueInput* input) {return Bye(input); }
+	);
+
 	func_map.emplace(
 		PacketProcessKey{ PacketTypeGame::Move, PacketResult::Try },
 		[this](TaskQueueInput* input) {return Move(input); }
 	);
+
 	func_map.emplace(
 		PacketProcessKey{ PacketTypeGame::FireBullet, PacketResult::Try },
-		[this](TaskQueueInput* input) {return SomeoneFireBullet(input); }
+		[this](TaskQueueInput* input) {return FireBullet(input); }
+	);
+
+	func_map.emplace(
+		PacketProcessKey{ PacketTypeGame::Die, PacketResult::Try },
+		[this](TaskQueueInput* input) {return Die(input); }
+	);
+
+	func_map.emplace(
+		PacketProcessKey{ PacketTypeGame::Resurrect, PacketResult::Try },
+		[this](TaskQueueInput* input) {return Resurrect(input); }
 	);
 
 	isInitialized = true;
@@ -128,7 +145,7 @@ void PacketGameProcess::initialize()
 
 
 
-bool PacketGameProcess::HelloClient(TaskQueueInput* input)
+bool PacketGameProcess::Hello(TaskQueueInput* input)
 {
 	try
 	{
@@ -158,6 +175,23 @@ bool PacketGameProcess::HelloClient(TaskQueueInput* input)
 	return true;
 }
 
+bool PacketGameProcess::Bye(TaskQueueInput* input)
+{
+	try
+	{
+		if (!BroadCastThis(input, 0, SESSION_TYPE::TCP)) throw "Broadcast Fail!";
+		input->packet->set_process_result(PacketResult::Success);
+	}
+	catch (const char* msg)
+	{
+		logs.log_error(msg, "Bye");
+		input->packet->set_process_result(PacketResult::Fail);
+		return false;
+	}
+	return true;
+}
+
+
 bool PacketGameProcess::Move(TaskQueueInput* input)
 {
 	try
@@ -175,7 +209,7 @@ bool PacketGameProcess::Move(TaskQueueInput* input)
 	return true;
 }
 
-bool PacketGameProcess::SomeoneFireBullet(TaskQueueInput* input)
+bool PacketGameProcess::FireBullet(TaskQueueInput* input)
 {
 	try
 	{
@@ -190,5 +224,37 @@ bool PacketGameProcess::SomeoneFireBullet(TaskQueueInput* input)
 		return false;
 	}
 
+	return true;
+}
+
+bool PacketGameProcess::Die(TaskQueueInput* input)
+{
+	try
+	{
+		if (!BroadCastThis(input, 0, SESSION_TYPE::UDP)) throw "Broadcast Fail!";
+		input->packet->set_process_result(PacketResult::Success);
+	}
+	catch (const char* msg)
+	{
+		logs.log_error(msg, "Die");
+		input->packet->set_process_result(PacketResult::Fail);
+		return false;
+	}
+	return true;
+}
+
+bool PacketGameProcess::Resurrect(TaskQueueInput* input)
+{
+	try
+	{
+		if (!BroadCastThis(input, 0, SESSION_TYPE::UDP)) throw "Broadcast Fail!";
+		input->packet->set_process_result(PacketResult::Success);
+	}
+	catch (const char* msg)
+	{
+		logs.log_error(msg, "Resurrect");
+		input->packet->set_process_result(PacketResult::Fail);
+		return false;
+	}
 	return true;
 }

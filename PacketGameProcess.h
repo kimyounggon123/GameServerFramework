@@ -86,12 +86,17 @@ class PacketGameProcess : public PacketProcess
 
 	bool BroadCastThis(TaskQueueInput* input, int RoomID = 0, SESSION_TYPE type = SESSION_TYPE::TCP);
 
-	bool HelloClient(TaskQueueInput* input);
-	bool SomeoneFireBullet(TaskQueueInput* input);
+	bool Hello(TaskQueueInput* input);
+	bool Bye(TaskQueueInput* input);
 	bool Move(TaskQueueInput* input);
+	bool FireBullet(TaskQueueInput* input);
+	bool Die(TaskQueueInput* input);
+	bool Resurrect(TaskQueueInput* input);
 public:
 	PacketGameProcess(): PacketProcess(), gameDispatcher(GameDispatcher::getInstance()), roomManager(RoomManager::getInstance())
-	{}
+	{
+
+	}
 	void initialize() override;
 };
 

@@ -5,11 +5,7 @@ bool BroadcastManager::initialize()
 {
 	if (!ThreadPool::initialize()) return false;
 	gameDispatcher.Initialize();
-	for (int i = 0; i < 100; i++)
-	{
-		SOCKETINFO* forBroadcast = new SOCKETINFO(SESSION_TYPE::UDP, true);
-		sessionManager.InputSOCKETINFOforUDP(forBroadcast);
-	}
+	sessionManager.MakeSOCKETINFOforUDPbroadcast(120);
 	return true;
 }
 
@@ -60,9 +56,10 @@ bool BroadcastManager::SendAllRoomMember(BroadcastInformation* info)
 				}
 				ptr->addResponseCount();
 			}
+
 			catch (const char* msg)
 			{
-				if (forUDPconnection) sessionManager.InputSOCKETINFOforUDP(forUDPconnection);
+				if (forUDPconnection) sessionManager.ReleaseSOCKETINFOforUDP(forUDPconnection);
 				logs.log(msg, "SendAllRoomMember()");
 			}
 		}
@@ -79,7 +76,7 @@ bool BroadcastManager::SendAllRoomMember(BroadcastInformation* info)
 			try
 			{
 				forUDPconnection = nullptr;
-				if (!sessionManager.PopSOCKETINFOforUDP(forUDPconnection)) throw "pop fail!";
+				if (!sessionManager.GetSOCKETINFOforUDP(forUDPconnection)) throw "pop fail!";
 
 		
 				DWORD waitResult = forUDPconnection->waitSendEvent();
@@ -111,7 +108,7 @@ bool BroadcastManager::SendAllRoomMember(BroadcastInformation* info)
 			}
 			catch (const char* msg)
 			{
-				if (forUDPconnection) sessionManager.InputSOCKETINFOforUDP(forUDPconnection);
+				if (forUDPconnection) sessionManager.ReleaseSOCKETINFOforUDP(forUDPconnection);
 				logs.log(msg, "SendAllRoomMember()");
 			}
 		}
