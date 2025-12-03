@@ -6,14 +6,12 @@
 struct PacketTypeGame
 {
 	static constexpr int32_t Base = 100;
-	static int count;
-	static int Next() { return Base + count++; }
 
-	static const int32_t Hello;
-	static const int32_t Move;
-	static const int32_t FireBullet;
-	static const int32_t Die;
-	static const int32_t Resurrect;
+	static constexpr int32_t Hello =		Base + 0;
+	static constexpr int32_t Move =			Base + 1;
+	static constexpr int32_t FireBullet =	Base + 2;
+	static constexpr int32_t Die =			Base + 3;
+	static constexpr int32_t Resurrect =	Base + 4;
 };
 
 

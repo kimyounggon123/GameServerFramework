@@ -5,11 +5,7 @@ bool BroadcastManager::initialize()
 {
 	if (!ThreadPool::initialize()) return false;
 	gameDispatcher.Initialize();
-	for (int i = 0; i < 100; i++)
-	{
-		SOCKETINFO* forBroadcast = new SOCKETINFO(SESSION_TYPE::UDP, true);
-		sessionManager.InputSOCKETINFOforUDP(forBroadcast);
-	}
+	sessionManager.MakeSOCKETINFOforUDPbroadcast(120);
 	return true;
 }
 
@@ -20,24 +16,28 @@ bool BroadcastManager::SendAllRoomMember(BroadcastInformation* info)
 	INT retval;
 	DWORD sendbytes;
 	char buffer[2048]; // 미리 버퍼에 serialize
+
 	if (!info->packet->serialize(buffer)) return false; // 패킷이 망가져있을 경우 보내지 않기
 	ULONG len = info->packet->getPacketSerializedLength();
 
 	SOCKETINFO* forUDPconnection = nullptr;
-	try
-	{
-		if (info->sessionType == SESSION_TYPE::TCP)
-		{
-			std::vector<SOCKETINFO*> members;
-			info->room->CopySOCKETINFOPointers(members);
 
-			for (SOCKETINFO* ptr : members)
+	if (info->sessionType == SESSION_TYPE::TCP)
+	{
+
+		std::vector<SOCKETINFO*> members;
+		info->room->CopySOCKETINFOPointers(members);
+
+		for (SOCKETINFO* ptr : members)
+		{
+			try
 			{
 				if (ptr == nullptr) throw "nullptr";
 				if (!ptr->acceptCompleted.load()) continue;
+				if (info->packet->getClientID() == ptr->id) continue;
 
+				ptr->response.reset_overlapped(ptr->response.IO_buffer, len, false); // wsabuf 초기화
 				memcpy(ptr->response.IO_buffer, buffer, len); // 미리 serialize한 버퍼를 복사
-				ptr->response.reset_overlapped(ptr->response.IO_buffer, len); // wsabuf 초기화
 
 				DWORD waitResult = ptr->waitSendEvent();
 				if (waitResult != WAIT_OBJECT_0)
@@ -56,28 +56,38 @@ bool BroadcastManager::SendAllRoomMember(BroadcastInformation* info)
 				}
 				ptr->addResponseCount();
 			}
+
+			catch (const char* msg)
+			{
+				if (forUDPconnection) sessionManager.ReleaseSOCKETINFOforUDP(forUDPconnection);
+				logs.log(msg, "SendAllRoomMember()");
+			}
 		}
+		if (info) gameDispatcher.PushTaskToBroadCastPool(info);
+	}
 
-		else if (info->sessionType == SESSION_TYPE::UDP)
+	else if (info->sessionType == SESSION_TYPE::UDP)
+	{
+		std::vector<SOCKADDR_IN> udpmember;
+		info->room->CopyMemberPointersUDP(udpmember);
+
+		for (SOCKADDR_IN udp : udpmember)
 		{
-			std::vector<SOCKADDR_IN> udpmember;
-			info->room->CopyMemberPointersUDP(udpmember);
-
-			for (SOCKADDR_IN udp : udpmember)
+			try
 			{
 				forUDPconnection = nullptr;
-				if (!sessionManager.PopSOCKETINFOforUDP(forUDPconnection)) throw "pop fail!";
+				if (!sessionManager.GetSOCKETINFOforUDP(forUDPconnection)) throw "pop fail!";
 
-				/*DWORD waitResult = forUDPconnection->waitSendEvent();
+		
+				DWORD waitResult = forUDPconnection->waitSendEvent();
 				if (waitResult != WAIT_OBJECT_0)
 				{
 					if (waitResult == WAIT_TIMEOUT)	throw "waitMutex() time up";
 					if (waitResult == WAIT_FAILED) throw "waitSendEvent() failed";
 				}
-				*/
 
+				forUDPconnection->response.reset_overlapped(forUDPconnection->response.IO_buffer, len, true); // wsabuf 초기화
 				memcpy(forUDPconnection->response.IO_buffer, buffer, len); // 미리 serialize한 버퍼를 복사
-				forUDPconnection->response.reset_overlapped(forUDPconnection->response.IO_buffer, len); // wsabuf 초기화
 
 				// Sending data
 				retval = WSASendTo(sockUDP,
@@ -96,20 +106,19 @@ bool BroadcastManager::SendAllRoomMember(BroadcastInformation* info)
 					}
 				}
 			}
+			catch (const char* msg)
+			{
+				if (forUDPconnection) sessionManager.ReleaseSOCKETINFOforUDP(forUDPconnection);
+				logs.log(msg, "SendAllRoomMember()");
+			}
 		}
-		else
-		{
-			return false;
-		}
-
+		if (info) gameDispatcher.PushTaskToBroadCastPool(info);
 	}
-	catch (const char* msg)
+	else
 	{
-		if (forUDPconnection) sessionManager.InputSOCKETINFOforUDP(forUDPconnection);
-		logs.log(msg, "SendAllRoomMember()");
+		if (info) gameDispatcher.PushTaskToBroadCastPool(info);
+		return false;
 	}
-
-
 	return true;
 }
 

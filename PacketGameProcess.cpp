@@ -1,5 +1,6 @@
 #include "PacketGameProcess.h"
 GameDispatcher* GameDispatcher::instance = nullptr;
+
 bool GameDispatcher::Initialize()
 {
 	if (isInitialized) return isInitialized;
@@ -92,6 +93,7 @@ bool PacketGameProcess::BroadCastThis(TaskQueueInput* input, int RoomID, SESSION
 		forBroadcast->sessionType = type;
 		*forBroadcast->packet = *input->packet; // deep copy
 
+
 		forBroadcast->packet->set_process_result(PacketResult::BroadCast);
 		if (!gameDispatcher.InputBroadCastTask(forBroadcast)) throw "InputBroadcastTask()";
 	}
@@ -108,12 +110,14 @@ bool PacketGameProcess::BroadCastThis(TaskQueueInput* input, int RoomID, SESSION
 void PacketGameProcess::initialize()
 {
 	PacketProcess::initialize();
-
 	func_map.emplace(
 		PacketProcessKey{ PacketTypeGame::Hello, PacketResult::Try },
 		[this](TaskQueueInput* input) {return HelloClient(input); }
 	);
-
+	func_map.emplace(
+		PacketProcessKey{ PacketTypeGame::Move, PacketResult::Try },
+		[this](TaskQueueInput* input) {return Move(input); }
+	);
 	func_map.emplace(
 		PacketProcessKey{ PacketTypeGame::FireBullet, PacketResult::Try },
 		[this](TaskQueueInput* input) {return SomeoneFireBullet(input); }
@@ -129,13 +133,41 @@ bool PacketGameProcess::HelloClient(TaskQueueInput* input)
 	try
 	{
 		input->packet->setClientID(input->sessionInfo->id);
+
+		std::vector<SOCKETINFO*> allClient;
+		Room* room = roomManager.GetRoom(0);
+		room->CopySOCKETINFOPointers(allClient);
+
+		size_t offset = 0;
+		for (SOCKETINFO* info : allClient)
+		{
+			if (!info->acceptCompleted || info->isBroadcast) continue;
+			input->packet->inputDataInt(info->id, offset);
+		}
+
 		if (!BroadCastThis(input, 0, SESSION_TYPE::TCP)) throw "Broadcast Fail!";
 		input->packet->set_process_result(PacketResult::Success);
-		printf("qweqweqw\n");
 	}
 	catch (const char* msg)
 	{
 		logs.log_error(msg, "HelloClient()");
+		input->packet->set_process_result(PacketResult::Fail);
+		return false;
+	}
+
+	return true;
+}
+
+bool PacketGameProcess::Move(TaskQueueInput* input)
+{
+	try
+	{
+		if (!BroadCastThis(input, 0, SESSION_TYPE::UDP)) throw "Broadcast Fail!";
+		input->packet->set_process_result(PacketResult::Success);
+	}
+	catch (const char* msg)
+	{
+		logs.log_error(msg, "Move");
 		input->packet->set_process_result(PacketResult::Fail);
 		return false;
 	}

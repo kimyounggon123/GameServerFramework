@@ -37,8 +37,8 @@ class GameDispatcher
 
 	static GameDispatcher* instance;
 	GameDispatcher() : isInitialized(false),
-		DBpool(true), BroadCastpool(true),
-		DBagentTasks(true, 100), BroadCastAgentTasks(true, 100)
+		DBpool(INFINITE), BroadCastpool(INFINITE),
+		DBagentTasks(100), BroadCastAgentTasks(100)
 	{}
 public:
 	~GameDispatcher()
@@ -88,9 +88,12 @@ class PacketGameProcess : public PacketProcess
 
 	bool HelloClient(TaskQueueInput* input);
 	bool SomeoneFireBullet(TaskQueueInput* input);
+	bool Move(TaskQueueInput* input);
 public:
 	PacketGameProcess(): PacketProcess(), gameDispatcher(GameDispatcher::getInstance()), roomManager(RoomManager::getInstance())
-	{}
+	{
+
+	}
 	void initialize() override;
 };
 
