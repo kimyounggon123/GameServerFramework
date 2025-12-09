@@ -6,6 +6,8 @@
 class GameRoom : public Room
 {
 	/*
+	* Room fields
+	
 	int roomID;
 	std::atomic<int> next_id; // 임시용. 원래는 DB에 저장된 id를 입력해야 해서 이 부분이 불필요함.
 	std::atomic<int> countClient;
@@ -19,16 +21,13 @@ class GameRoom : public Room
 	*/
 
 	// 게임 로직 부분
+	ThreadSafeQueue<TaskQueueInput*> logicQueue;
 
-
-	ThreadSafeQueue<Packet*> broadcastQueue;
 public:
-	GameRoom(int roomID): Room(roomID), broadcastQueue(false)
-	{ }
+	GameRoom(int roomID): Room(roomID),
+		logicQueue(INFINITE)
+	{}
 
-	void GameLogicFrame();
-	bool EnqueueBroadcast(Packet*& input);
-	bool DequeueBroadcast(Packet*& output);
 };
 
 
@@ -36,16 +35,15 @@ public:
 class RoomManager
 {
 	static RoomManager* instance;
+	bool isInitialized;
+
 	std::atomic<int> nextID;
-
-	ThreadSafeQueue<GameRoom*> broadcastLine;
-
+	
 	IOCPSessionManager& allClients;
 
 	RoomManager() :
-		nextID(0),
-		allClients(IOCPSessionManager::getInstance()),
-		broadcastLine(INFINITE)
+		nextID(0), isInitialized(false),
+		allClients(IOCPSessionManager::getInstance())
 	{}
 public:
 	~RoomManager()
@@ -58,7 +56,12 @@ public:
 		return *instance;
 	}
 	
-	Room* GetRoom(int num = -1);
+	bool Initialize();
+
+	bool InputRoom(Room* room);
+	bool DeleteRoom(int ID);
+
+	Room* GetRoom(int ID = 0);
 };
 
 

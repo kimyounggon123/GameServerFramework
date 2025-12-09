@@ -7,7 +7,7 @@ int main()
 	PacketGameProcess* gameProc = new PacketGameProcess();
 	gameProc->initialize();
 
-	GameServerFramework* framework = new GameServerFramework(gameProc, 1000, 1001);
+	GameServerFramework* framework = new GameServerFramework(gameProc, 1000, 1001, 1002);
 	framework->initialize();
 	//framework->TurnOnDBconnector();
 
