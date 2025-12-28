@@ -16,6 +16,7 @@ bool GameDispatcher::Initialize()
 	isInitialized = true;
 	return isInitialized;
 }
+
 void GameDispatcher::UndoAllPool()
 {
 	TaskQueueInput* output = nullptr;
@@ -48,6 +49,7 @@ bool GameDispatcher::InputDBTask(TaskQueueInput* src)
 
 	return true;
 }
+
 bool GameDispatcher::PopDBTask(TaskQueueInput*& output)
 {
 	return DBagentTasks.dequeue(output);

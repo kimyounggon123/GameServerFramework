@@ -29,6 +29,8 @@ struct BroadcastInformation
 class GameDispatcher
 {
 	bool isInitialized;
+	Dispatcher& dispatcher;
+
 	ThreadSafeStack<TaskQueueInput*> DBpool;
 	ThreadSafeStack<BroadcastInformation*> BroadCastpool;
 
@@ -36,7 +38,7 @@ class GameDispatcher
 	ThreadSafeQueue<BroadcastInformation*> BroadCastAgentTasks; // DBpool에서 pop한 후 복사한 후 여기에 push, 이후 전송할 때 DBpool에 push
 
 	static GameDispatcher* instance;
-	GameDispatcher() : isInitialized(false),
+	GameDispatcher() : isInitialized(false), dispatcher(Dispatcher::getInstance()),
 		DBpool(INFINITE), BroadCastpool(INFINITE),
 		DBagentTasks(100), BroadCastAgentTasks(100)
 	{}
