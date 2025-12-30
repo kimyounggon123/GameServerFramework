@@ -26,6 +26,17 @@ struct BroadcastInformation
 
 // 게임 서버용 추가 디스패처
 // TaskQueueInput에 저장된 정보들을 해당 Dispatcher의 풀에서 꺼내와서 deep copy
+class BroadcastDispatcher
+{
+	TaskPool* pool;
+	Pipe pipe;
+};
+class DBDispatcher
+{
+	TaskPool* pool;
+	Pipe pipe;
+};
+
 class GameDispatcher
 {
 	bool isInitialized;
