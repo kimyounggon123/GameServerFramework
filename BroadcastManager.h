@@ -28,17 +28,17 @@
 class BroadcastManager : public ThreadPool
 {
 	IOCPSessionManager& sessionManager;
-	GameDispatcher& gameDispatcher;
+	DispatcherHub& dispatcherHub;
+
 	SOCKET sockUDP;
 
 	unsigned int workLoop() override;
-	bool SendAllRoomMember(BroadcastInformation* info);
-
+	bool SendAllRoomMember(TaskQueueInput* info);
 
 public:
 	BroadcastManager(int poolCapacity, SOCKET sockUDP)
 		: ThreadPool(poolCapacity), sockUDP(sockUDP),
-		gameDispatcher(GameDispatcher::getInstance()),
+		dispatcherHub(DispatcherHub::getInstance()),
 		sessionManager(IOCPSessionManager::getInstance())
 	{}
 	~BroadcastManager()

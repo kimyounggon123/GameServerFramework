@@ -5,99 +5,55 @@
 #include "RoomManager.h"
 #include "PacketIDExpand.h"
 
-struct BroadcastInformation
-{
-	Room* room;
-	Packet* packet;
-	SESSION_TYPE sessionType;
-	BroadcastInformation(SESSION_TYPE s = SESSION_TYPE::TCP) :
-		room(nullptr), packet(new Packet()), sessionType(s)
-	{}
-	~BroadcastInformation()
-	{
-		SAFE_FREE(packet);
-	}
-
-	bool isInvalid()
-	{
-		return room == nullptr || packet == nullptr;
-	}
-};
-
 // 게임 서버용 추가 디스패처
 // TaskQueueInput에 저장된 정보들을 해당 Dispatcher의 풀에서 꺼내와서 deep copy
-class BroadcastDispatcher
+
+
+enum class Route
 {
-	TaskPool* pool;
-	Pipe pipe;
+	Process,
+	Send,
+	DB,
+	Broadcast
 };
-class DBDispatcher
+
+class DispatcherHub
 {
-	TaskPool* pool;
-	Pipe pipe;
-};
+	DispatcherUnit* DBDispatcher;
+	DispatcherUnit* BroadcastDispatcher;
 
-class GameDispatcher
-{
-	bool isInitialized;
-	Dispatcher& dispatcher;
-
-	ThreadSafeStack<TaskQueueInput*> DBpool;
-	ThreadSafeStack<BroadcastInformation*> BroadCastpool;
-
-	ThreadSafeQueue<TaskQueueInput*> DBagentTasks; // DBpool에서 pop한 후 복사한 후 여기에 push, 이후 전송할 때 DBpool에 push
-	ThreadSafeQueue<BroadcastInformation*> BroadCastAgentTasks; // DBpool에서 pop한 후 복사한 후 여기에 push, 이후 전송할 때 DBpool에 push
-
-	static GameDispatcher* instance;
-	GameDispatcher() : isInitialized(false), dispatcher(Dispatcher::getInstance()),
-		DBpool(INFINITE), BroadCastpool(INFINITE),
-		DBagentTasks(100), BroadCastAgentTasks(100)
+	static DispatcherHub* instance;
+	DispatcherHub():
+		DBDispatcher(nullptr), BroadcastDispatcher(nullptr)
 	{}
 public:
-	~GameDispatcher()
+	~DispatcherHub()
 	{
-		UndoAllPool();
-		while (!DBpool.isEmpty())
-		{
-			TaskQueueInput* delThis = nullptr;
-			if (DBpool.pop(delThis))
-				SAFE_FREE(delThis);
-		}
-		while (!BroadCastpool.isEmpty())
-		{
-			BroadcastInformation* delThis = nullptr;
-			if (BroadCastpool.pop(delThis))
-				SAFE_FREE(delThis);
-		}
+		SAFE_FREE(DBDispatcher);
+		SAFE_FREE(BroadcastDispatcher);
 	}
-	static GameDispatcher& getInstance()
+	static DispatcherHub& getInstance()
 	{
-		if (instance == nullptr) instance = new GameDispatcher;
+		if (instance == nullptr) instance = new DispatcherHub();
 		return *instance;
 	}
-	void UndoAllPool();
 
 	bool Initialize();
 
-	bool InputDBTask(TaskQueueInput* src); // 원본 소스를 복사해서 DBagentTask에 전달
-	bool PopDBTask(TaskQueueInput*& output);
-	bool PushTaskToDBpool(TaskQueueInput*& src); // 사용한 Task 다시 return
-
-	bool GetTaskFromBroadCastPool(BroadcastInformation*& getThis); // 미리 풀에서 받아오기
-	bool InputBroadCastTask(BroadcastInformation*& src);  // 풀에서 받아온 정보를 task queue에 넣음
-	bool PopBroadCastTask(BroadcastInformation*& output);
-	bool PushTaskToBroadCastPool(BroadcastInformation*& src); // 전송 완료한 task를 다시 push
+	bool EnqueueProcessCopy(TaskQueueInput*& input, const Route& route); // 1:1 통신 단위를 복사해서 전달해야 함
+	bool DequeueProcess(TaskQueueInput*& input, const Route& route);  // dispatcher에서 pop하는 작업. 복사 x
+	bool ReturnTask(TaskQueueInput*& returnThis, const Route& route);
 };
-
 
 
 
 class PacketGameProcess : public PacketProcess
 {
-	GameDispatcher& gameDispatcher;
+	DispatcherHub& dispatcherHub;
 	RoomManager& roomManager;
 
-	bool BroadCastThis(TaskQueueInput* input, int RoomID = 0, SESSION_TYPE type = SESSION_TYPE::TCP);
+	bool BroadCastThis(TaskQueueInput* input, int RoomID = 0);
+	bool CallDBagent(TaskQueueInput* input);
 
 	bool Hello(TaskQueueInput* input);
 	bool Bye(TaskQueueInput* input);
@@ -106,7 +62,7 @@ class PacketGameProcess : public PacketProcess
 	bool Die(TaskQueueInput* input);
 	bool Resurrect(TaskQueueInput* input);
 public:
-	PacketGameProcess(): PacketProcess(), gameDispatcher(GameDispatcher::getInstance()), roomManager(RoomManager::getInstance())
+	PacketGameProcess(): PacketProcess(), dispatcherHub(DispatcherHub::getInstance()), roomManager(RoomManager::getInstance())
 	{
 
 	}

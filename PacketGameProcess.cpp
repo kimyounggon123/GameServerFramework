@@ -1,113 +1,125 @@
 #include "PacketGameProcess.h"
-GameDispatcher* GameDispatcher::instance = nullptr;
-
-bool GameDispatcher::Initialize()
+DispatcherHub* DispatcherHub::instance = nullptr;
+bool DispatcherHub::Initialize()
 {
-	if (isInitialized) return isInitialized;
-	for (int i = 0; i < 100; i++)
-	{
-		BroadcastInformation* b = new BroadcastInformation();
-		TaskQueueInput* task = new TaskQueueInput();
+	DBDispatcher = new DispatcherUnit();
+	BroadcastDispatcher = new DispatcherUnit();
 
-		BroadCastpool.push(b);
-		DBpool.push(task);
-	}
+	if (!DBDispatcher || !BroadcastDispatcher) return false;
 
-	isInitialized = true;
-	return isInitialized;
-}
-
-void GameDispatcher::UndoAllPool()
-{
-	TaskQueueInput* output = nullptr;
-	while (!DBagentTasks.isEmpty())
-	{
-		if (DBagentTasks.dequeue(output))
-			DBpool.push(output);
-	}
-
-	BroadcastInformation* broadOut = nullptr;
-	while (!BroadCastAgentTasks.isEmpty())
-	{
-		if (BroadCastAgentTasks.dequeue(broadOut))
-			BroadCastpool.push(broadOut);
-	}
-
-}
-
-bool GameDispatcher::InputDBTask(TaskQueueInput* src)
-{
-	TaskQueueInput* getFromPool = nullptr;
-	if (!DBpool.pop(getFromPool)) return false;
-	*getFromPool = *src; // deep copy
-
-	if (!DBagentTasks.enqueue(getFromPool))
-	{
-		DBpool.push(getFromPool);
-		return false;
-	}
+	DBDispatcher->initialize();
+	BroadcastDispatcher->initialize();
 
 	return true;
 }
 
-bool GameDispatcher::PopDBTask(TaskQueueInput*& output)
+bool DispatcherHub::EnqueueProcessCopy(TaskQueueInput*& input, const Route& route)
 {
-	return DBagentTasks.dequeue(output);
+	if (input == nullptr) return false;
+
+	TaskQueueInput* copyThis = nullptr;
+	DispatcherUnit* where = nullptr;
+	int32_t packetResult= 0;
+
+	switch (route)
+	{
+	case Route::Broadcast:
+		where = BroadcastDispatcher;
+		packetResult = PacketResult::BroadCast;
+		break;
+	case Route::DB:
+		where = DBDispatcher;
+		packetResult = PacketResult::WaitDatabase;
+		break;
+	}
+	if (where == nullptr) return false;
+
+
+	if (!where->popPool(copyThis)) return false;
+	copyThis->copyFrom(*input);
+	copyThis->packet->set_process_result(packetResult);
+	if (!where->enqueue(copyThis))
+	{
+		where->pushPool(copyThis);
+		return false;
+	}
+	return true;
 }
-bool GameDispatcher::PushTaskToDBpool(TaskQueueInput*& src)
+
+bool DispatcherHub::DequeueProcess(TaskQueueInput*& output, const Route& route)
 {
-	return DBpool.push(src);
+	DispatcherUnit* where = nullptr;
+
+	switch (route)
+	{
+	case Route::Broadcast:
+		where = BroadcastDispatcher;
+		break;
+	case Route::DB:
+		where = DBDispatcher;
+		break;
+	}
+	if (where == nullptr) return false;
+
+	return where->dequeue(output);
+}
+
+bool DispatcherHub::ReturnTask(TaskQueueInput*& returnThis, const Route& route)
+{
+	bool result = false;
+
+	switch (route)
+	{
+	case Route::Broadcast:
+		result = BroadcastDispatcher->pushPool(returnThis);
+		break;
+
+	case Route::DB:
+		result = DBDispatcher->pushPool(returnThis);
+		break;
+
+	default:
+		break;
+	}
+
+	return result;
 }
 
 
-
-// 미리 해당 클라이언트의 방 정보를 받아와야 함
-bool GameDispatcher::GetTaskFromBroadCastPool(BroadcastInformation*& getThis)
+bool PacketGameProcess::BroadCastThis(TaskQueueInput* input, int RoomID)
 {
-	return BroadCastpool.pop(getThis);
-}
-bool GameDispatcher::InputBroadCastTask(BroadcastInformation*& src)
-{
-	return BroadCastAgentTasks.enqueue(src);
-}
-bool GameDispatcher::PopBroadCastTask(BroadcastInformation*& output)
-{
-	return BroadCastAgentTasks.dequeue(output);
-}
-bool GameDispatcher::PushTaskToBroadCastPool(BroadcastInformation*& src)
-{
-	return BroadCastpool.push(src);
-}
-
-bool PacketGameProcess::BroadCastThis(TaskQueueInput* input, int RoomID, SESSION_TYPE type)
-{
-	BroadcastInformation* forBroadcast = nullptr;
-
 	try
 	{
 		if (!input || !input->packet) throw "input nullptr";
-
-		if (!gameDispatcher.GetTaskFromBroadCastPool(forBroadcast)) throw "forBroadcast nullptr";
-
-		forBroadcast->room = roomManager.GetRoom(RoomID);
-		if (!forBroadcast->room) throw "room nullptr";
-
-		forBroadcast->sessionType = type;
-		*forBroadcast->packet = *input->packet; // deep copy
-
-
-		forBroadcast->packet->set_process_result(PacketResult::BroadCast);
-		if (!gameDispatcher.InputBroadCastTask(forBroadcast)) throw "InputBroadcastTask()";
+		input->target.room = roomManager.GetRoom(RoomID);
+		if (!input->target.room) throw "room nullptr";
+		if (!dispatcherHub.EnqueueProcessCopy(input, Route::Broadcast)) throw "InputBroadcastTask()";
 	}
 	catch (const char* msg)
 	{
-		if (forBroadcast) gameDispatcher.PushTaskToBroadCastPool(forBroadcast);
 		logs.log_error(msg, "BroadCastThis()");
 		return false;
 	}
 
 	return true;
 }
+
+bool PacketGameProcess::CallDBagent(TaskQueueInput* input)
+{
+	try
+	{
+		if (!input || !input->packet) throw "input nullptr";
+		if (!dispatcherHub.EnqueueProcessCopy(input, Route::DB)) throw "InputBroadcastTask()";
+	}
+	catch (const char* msg)
+	{
+		logs.log_error(msg, "BroadCastThis()");
+		return false;
+	}
+
+	return true;
+}
+
 
 void PacketGameProcess::initialize()
 {
@@ -164,7 +176,7 @@ bool PacketGameProcess::Hello(TaskQueueInput* input)
 			input->packet->inputDataInt(info->id, offset);
 		}
 
-		if (!BroadCastThis(input, 0, SESSION_TYPE::TCP)) throw "Broadcast Fail!";
+		if (!BroadCastThis(input, 0)) throw "Broadcast Fail!";
 		input->packet->set_process_result(PacketResult::Success);
 	}
 	catch (const char* msg)
@@ -181,7 +193,7 @@ bool PacketGameProcess::Bye(TaskQueueInput* input)
 {
 	try
 	{
-		if (!BroadCastThis(input, 0, SESSION_TYPE::TCP)) throw "Broadcast Fail!";
+		if (!BroadCastThis(input, 0)) throw "Broadcast Fail!";
 		input->packet->set_process_result(PacketResult::Success);
 	}
 	catch (const char* msg)
@@ -198,7 +210,7 @@ bool PacketGameProcess::Move(TaskQueueInput* input)
 {
 	try
 	{
-		if (!BroadCastThis(input, 0, SESSION_TYPE::UDP)) throw "Broadcast Fail!";
+		if (!BroadCastThis(input, 0)) throw "Broadcast Fail!";
 		input->packet->set_process_result(PacketResult::Success);
 	}
 	catch (const char* msg)
@@ -216,7 +228,7 @@ bool PacketGameProcess::FireBullet(TaskQueueInput* input)
 	try
 	{
 		//gameDispatcher.InputDBTask(input); //작업을 DB에 저장하기 위해 전송함
-		BroadCastThis(input, 0, SESSION_TYPE::UDP); // 특정 작업을 타 클라이언트에게 broadcast (0: Global broadcasting)
+		BroadCastThis(input, 0); // 특정 작업을 타 클라이언트에게 broadcast (0: Global broadcasting)
 		input->packet->set_process_result(PacketResult::Success);
 	}
 	catch (const char* msg)
@@ -233,7 +245,7 @@ bool PacketGameProcess::Die(TaskQueueInput* input)
 {
 	try
 	{
-		if (!BroadCastThis(input, 0, SESSION_TYPE::UDP)) throw "Broadcast Fail!";
+		if (!BroadCastThis(input, 0)) throw "Broadcast Fail!";
 		input->packet->set_process_result(PacketResult::Success);
 	}
 	catch (const char* msg)
@@ -249,7 +261,7 @@ bool PacketGameProcess::Resurrect(TaskQueueInput* input)
 {
 	try
 	{
-		if (!BroadCastThis(input, 0, SESSION_TYPE::UDP)) throw "Broadcast Fail!";
+		if (!BroadCastThis(input, 0)) throw "Broadcast Fail!";
 		input->packet->set_process_result(PacketResult::Success);
 	}
 	catch (const char* msg)

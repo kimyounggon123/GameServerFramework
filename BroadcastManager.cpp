@@ -4,12 +4,12 @@
 bool BroadcastManager::initialize()
 {
 	if (!ThreadPool::initialize()) return false;
-	gameDispatcher.Initialize();
+	dispatcherHub.Initialize();
 	sessionManager.MakeSOCKETINFOforUDPbroadcast(120);
 	return true;
 }
 
-bool BroadcastManager::SendAllRoomMember(BroadcastInformation* info)
+bool BroadcastManager::SendAllRoomMember(TaskQueueInput* info)
 {
 	if (info == nullptr) return false;
 
@@ -26,7 +26,7 @@ bool BroadcastManager::SendAllRoomMember(BroadcastInformation* info)
 	{
 
 		std::vector<SOCKETINFO*> members;
-		info->room->CopySOCKETINFOPointers(members);
+		info->target.room->CopySOCKETINFOPointers(members);
 
 		for (SOCKETINFO* ptr : members)
 		{
@@ -63,13 +63,13 @@ bool BroadcastManager::SendAllRoomMember(BroadcastInformation* info)
 				logs.log(msg, "SendAllRoomMember()");
 			}
 		}
-		if (info) gameDispatcher.PushTaskToBroadCastPool(info);
+		if (info) dispatcherHub.ReturnTask(info, Route::Broadcast);
 	}
 
 	else if (info->sessionType == SESSION_TYPE::UDP)
 	{
 		std::vector<SOCKADDR_IN> udpmember;
-		info->room->CopyMemberPointersUDP(udpmember);
+		info->target.room->CopyMemberPointersUDP(udpmember);
 
 		for (SOCKADDR_IN udp : udpmember)
 		{
@@ -112,11 +112,11 @@ bool BroadcastManager::SendAllRoomMember(BroadcastInformation* info)
 				logs.log(msg, "SendAllRoomMember()");
 			}
 		}
-		if (info) gameDispatcher.PushTaskToBroadCastPool(info);
+		if (info) dispatcherHub.ReturnTask(info, Route::Broadcast);
 	}
 	else
 	{
-		if (info) gameDispatcher.PushTaskToBroadCastPool(info);
+		if (info) dispatcherHub.ReturnTask(info, Route::Broadcast);
 		return false;
 	}
 	return true;
@@ -126,15 +126,20 @@ unsigned int BroadcastManager::workLoop()
 {
 	while (!exit_flag.load())
 	{
-		BroadcastInformation* output = nullptr;
+		TaskQueueInput* output = nullptr;
 		
 		try
 		{
-			if (!gameDispatcher.PopBroadCastTask(output)) continue;
+			if (!dispatcherHub.DequeueProcess(output, Route::Broadcast)) continue;
 			if (output == nullptr) throw "output error";
 			if (output->isInvalid()) throw "output field error";
 
-			if (!SendAllRoomMember(output)) throw "SendAllRoomMember()";
+			switch (output->target.type)
+			{
+			default:
+				if (!SendAllRoomMember(output)) throw "SendAllRoomMember()";
+				break;
+			}
 		}
 		catch (const char* msg)
 		{
@@ -143,7 +148,7 @@ unsigned int BroadcastManager::workLoop()
 
 		if (output != nullptr)
 		{
-			gameDispatcher.PushTaskToBroadCastPool(output);
+			dispatcherHub.ReturnTask(output, Route::Broadcast);
 		}
 	}
 	return 0;

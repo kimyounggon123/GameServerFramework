@@ -4,7 +4,8 @@
 DBconnector::DBconnector(USHORT serverPort):
 	exit_flag(false), sock(INVALID_SOCKET), addr{}, logs(Logs::getInstance()), 
 	serverPort(serverPort),
-	sessionManager(IOCPSessionManager::getInstance()), dispatcher(Dispatcher::getInstance()), gameDispatcher(GameDispatcher::getInstance()),
+	sessionManager(IOCPSessionManager::getInstance()), 
+	basicDispatcher(Dispatcher::getInstance()), dispatcherHub(DispatcherHub::getInstance()),
 	hThreads{}, dwThreadID{}
 {
 
@@ -96,18 +97,18 @@ bool DBconnector::make_pk_and_push(char* recv_buf, int recv_len, size_t& offset)
 
 	try {
 		while (recv_len - offset > 0) {
-			if (!dispatcher.pop(input)) throw "Memory limit";
+			if (!basicDispatcher.pop(input, TaskInformation::PacketProcess)) throw "Memory limit";
 			if (input == nullptr) throw "input is nullptr!";
 
 			ERROR_CODE code = input->packet->deserialize(recv_buf, recv_len, offset);
 			if (code == ERROR_CODE::NEED_EXTRA_DATA)
 			{
-				dispatcher.push(input);
+				basicDispatcher.push(input, TaskInformation::PacketProcess);
 				break;
 			}
 			else if (code != ERROR_CODE::SUCCESS)
 			{
-				dispatcher.push(input);
+				basicDispatcher.push(input, TaskInformation::PacketProcess);
 				offset += 1; // 한 바이트씩 버리면서 다음 패킷 탐색
 				resyncCount++;
 				if (resyncCount >= 5)
@@ -124,12 +125,12 @@ bool DBconnector::make_pk_and_push(char* recv_buf, int recv_len, size_t& offset)
 			if (!sessionManager.find_socketinfo(input->packet->getClientID(), whoSendPacket)) throw "non-exist client";
 
 			input->sessionInfo = whoSendPacket;
-			if (!dispatcher.enqueue(input, QueueInformation::PacketProcess)) throw "enqueue()";
+			if (!basicDispatcher.enqueue(input, TaskInformation::PacketProcess)) throw "enqueue()";
 		}
 	}
 
 	catch (const char* msg) {
-		if (input != nullptr) dispatcher.push(input);
+		if (input != nullptr) basicDispatcher.push(input, TaskInformation::PacketProcess);
 		logs.log_error(msg, "DBconnector");
 		result = false;
 	}
@@ -180,9 +181,8 @@ unsigned int DBconnector::recvThread(LPVOID lpParam)
 unsigned int DBconnector::sendThread(LPVOID lpParam)
 {
 	DBconnector* This = reinterpret_cast<DBconnector*>(lpParam);
-	Dispatcher& dispatcher = This->dispatcher;
 	Logs& logs = This->logs;
-	GameDispatcher& gameDispatcher = This->gameDispatcher;
+	DispatcherHub& dispatcherHub = This->dispatcherHub;
 
 	INT retval = 0;
 	char send_buf[BUFFERSIZE + 1];
@@ -191,7 +191,7 @@ unsigned int DBconnector::sendThread(LPVOID lpParam)
 	{
 		TaskQueueInput* output = nullptr;
 		try {
-			if (!gameDispatcher.PopDBTask(output)) continue;
+			if (!dispatcherHub.DequeueProcess(output, Route::DB)) continue;
 
 			if (output == nullptr) throw "output error";
 			if (output->isInvalid()) throw "output field error";
@@ -209,7 +209,7 @@ unsigned int DBconnector::sendThread(LPVOID lpParam)
 			logs.log_error(msg, "DBconnector");
 		}
 
-		if (output != nullptr)	dispatcher.push(output);
+		if (output != nullptr)	dispatcherHub.ReturnTask(output, Route::DB);
 	}
 	return 0;
 }
