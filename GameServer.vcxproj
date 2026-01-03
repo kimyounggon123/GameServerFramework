@@ -131,7 +131,8 @@
   <ItemGroup>
     <ClCompile Include="BroadcastManager.cpp" />
     <ClCompile Include="DBconnector.cpp" />
-    <ClCompile Include="DeltaFrame.cpp" />
+    <ClCompile Include="Frame.cpp" />
+    <ClCompile Include="FPSRoom.cpp" />
     <ClCompile Include="GameServerFramework.cpp" />
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="PacketGameProcess.cpp" />
@@ -141,7 +142,8 @@
   <ItemGroup>
     <ClInclude Include="BroadcastManager.h" />
     <ClInclude Include="DBconnector.h" />
-    <ClInclude Include="DeltaFrame.h" />
+    <ClInclude Include="Frame.h" />
+    <ClInclude Include="FPSRoom.h" />
     <ClInclude Include="GameServerFramework.h" />
     <ClInclude Include="PacketGameProcess.h" />
     <ClInclude Include="PacketIDExpand.h" />

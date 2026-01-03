@@ -46,5 +46,4 @@ void GameServerFramework::Quit()
 	ServerFramework::Quit();
 	if (broadcaster) broadcaster->Quit();
 	if (dbConnector) dbConnector->Quit();
-	gameDispatcher.UndoAllPool();
 }
