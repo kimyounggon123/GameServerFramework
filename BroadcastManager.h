@@ -33,7 +33,7 @@ class BroadcastManager : public ThreadPool
 	SOCKET sockUDP;
 
 	unsigned int workLoop() override;
-	bool SendAllRoomMember(TaskQueueInput* info);
+	bool SendAllRoomMember(const Task& info);
 
 public:
 	BroadcastManager(int poolCapacity, SOCKET sockUDP)

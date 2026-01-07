@@ -91,7 +91,7 @@ void DBconnector::Quit()
 
 bool DBconnector::make_pk_and_push(char* recv_buf, int recv_len, size_t& offset) {
 
-	TaskQueueInput* input = nullptr;
+	TaskPTR input = nullptr;
 	bool result = true;
 	int resyncCount = 0;
 
@@ -103,12 +103,12 @@ bool DBconnector::make_pk_and_push(char* recv_buf, int recv_len, size_t& offset)
 			ERROR_CODE code = input->packet->deserialize(recv_buf, recv_len, offset);
 			if (code == ERROR_CODE::NEED_EXTRA_DATA)
 			{
-				basicDispatcher.push(input, TaskInformation::PacketProcess);
+				basicDispatcher.push(std::move(input), TaskInformation::PacketProcess);
 				break;
 			}
 			else if (code != ERROR_CODE::SUCCESS)
 			{
-				basicDispatcher.push(input, TaskInformation::PacketProcess);
+				basicDispatcher.push(std::move(input), TaskInformation::PacketProcess);
 				offset += 1; // 한 바이트씩 버리면서 다음 패킷 탐색
 				resyncCount++;
 				if (resyncCount >= 5)
@@ -125,12 +125,12 @@ bool DBconnector::make_pk_and_push(char* recv_buf, int recv_len, size_t& offset)
 			if (!sessionManager.find_socketinfo(input->packet->getClientID(), whoSendPacket)) throw "non-exist client";
 
 			input->sessionInfo = whoSendPacket;
-			if (!basicDispatcher.enqueue(input, TaskInformation::PacketProcess)) throw "enqueue()";
+			if (!basicDispatcher.enqueue(std::move(input), TaskInformation::PacketProcess)) throw "enqueue()";
 		}
 	}
 
 	catch (const char* msg) {
-		if (input != nullptr) basicDispatcher.push(input, TaskInformation::PacketProcess);
+		if (input != nullptr) basicDispatcher.push(std::move(input), TaskInformation::PacketProcess);
 		logs.log_error(msg, "DBconnector");
 		result = false;
 	}
@@ -189,7 +189,7 @@ unsigned int DBconnector::sendThread(LPVOID lpParam)
 
 	while (!This->exit_flag.load())
 	{
-		TaskQueueInput* output = nullptr;
+		TaskPTR output = nullptr;
 		try {
 			if (!dispatcherHub.DequeueProcess(output, Route::DB)) continue;
 
@@ -209,7 +209,7 @@ unsigned int DBconnector::sendThread(LPVOID lpParam)
 			logs.log_error(msg, "DBconnector");
 		}
 
-		if (output != nullptr)	dispatcherHub.ReturnTask(output, Route::DB);
+		if (output != nullptr)	dispatcherHub.PushTask(std::move(output), Route::DB);
 	}
 	return 0;
 }

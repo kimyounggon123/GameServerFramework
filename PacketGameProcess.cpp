@@ -13,11 +13,10 @@ bool DispatcherHub::Initialize()
 	return true;
 }
 
-bool DispatcherHub::EnqueueProcessCopy(TaskQueueInput*& input, const Route& route)
+bool DispatcherHub::EnqueueProcess(TaskPTR input, const Route& route)
 {
 	if (input == nullptr) return false;
 
-	TaskQueueInput* copyThis = nullptr;
 	DispatcherUnit* where = nullptr;
 	int32_t packetResult= 0;
 
@@ -35,18 +34,17 @@ bool DispatcherHub::EnqueueProcessCopy(TaskQueueInput*& input, const Route& rout
 	if (where == nullptr) return false;
 
 
-	if (!where->popPool(copyThis)) return false;
-	copyThis->copyFrom(*input);
-	copyThis->packet->set_process_result(packetResult);
-	if (!where->enqueue(copyThis))
+	input->packet->set_process_result(packetResult);
+	if (!where->enqueue(std::move(input)))
 	{
-		where->pushPool(copyThis);
+		where->pushPool(std::move(input));
 		return false;
 	}
+
 	return true;
 }
 
-bool DispatcherHub::DequeueProcess(TaskQueueInput*& output, const Route& route)
+bool DispatcherHub::DequeueProcess(TaskPTR& output, const Route& route)
 {
 	DispatcherUnit* where = nullptr;
 
@@ -64,18 +62,18 @@ bool DispatcherHub::DequeueProcess(TaskQueueInput*& output, const Route& route)
 	return where->dequeue(output);
 }
 
-bool DispatcherHub::ReturnTask(TaskQueueInput*& returnThis, const Route& route)
+bool DispatcherHub::PushTask(TaskPTR returnThis, const Route& route)
 {
 	bool result = false;
 
 	switch (route)
 	{
 	case Route::Broadcast:
-		result = BroadcastDispatcher->pushPool(returnThis);
+		result = BroadcastDispatcher->pushPool(std::move(returnThis));
 		break;
 
 	case Route::DB:
-		result = DBDispatcher->pushPool(returnThis);
+		result = DBDispatcher->pushPool(std::move(returnThis));
 		break;
 
 	default:
@@ -84,19 +82,44 @@ bool DispatcherHub::ReturnTask(TaskQueueInput*& returnThis, const Route& route)
 
 	return result;
 }
-
-
-bool PacketGameProcess::BroadCastThis(TaskQueueInput* input, int RoomID)
+bool DispatcherHub::PopTask(TaskPTR& returnThis, const Route& route)
 {
+	bool result = false;
+
+	switch (route)
+	{
+	case Route::Broadcast:
+		result = BroadcastDispatcher->popPool(returnThis);
+		break;
+
+	case Route::DB:
+		result = DBDispatcher->popPool(returnThis);
+		break;
+
+	default:
+		break;
+	}
+	return result;
+}
+
+bool PacketGameProcess::BroadCastThis(Task& input, int RoomID)
+{
+	TaskPTR broadcast = nullptr;
 	try
 	{
-		if (!input || !input->packet) throw "input nullptr";
-		input->target.room = roomManager.GetRoom(RoomID);
-		if (!input->target.room) throw "room nullptr";
-		if (!dispatcherHub.EnqueueProcessCopy(input, Route::Broadcast)) throw "InputBroadcastTask()";
+		if (!dispatcherHub.PopTask(broadcast, Route::Broadcast)) throw "pop fail";
+
+		input.target.room = roomManager.GetRoom(RoomID);
+		if (!input.target.room) throw "room nullptr";
+
+		broadcast->copyFrom(input);
+		//broadcast->packet->set_process_result(PacketResult::BroadCast);
+
+		if (!dispatcherHub.EnqueueProcess(std::move(broadcast), Route::Broadcast)) throw "InputBroadcastTask()";
 	}
 	catch (const char* msg)
 	{
+		if (broadcast) dispatcherHub.PushTask(std::move(broadcast), Route::Broadcast);
 		logs.log_error(msg, "BroadCastThis()");
 		return false;
 	}
@@ -104,16 +127,23 @@ bool PacketGameProcess::BroadCastThis(TaskQueueInput* input, int RoomID)
 	return true;
 }
 
-bool PacketGameProcess::CallDBagent(TaskQueueInput* input)
+bool PacketGameProcess::DBThis(Task& input)
 {
+	TaskPTR DBtask = nullptr;
 	try
 	{
-		if (!input || !input->packet) throw "input nullptr";
-		if (!dispatcherHub.EnqueueProcessCopy(input, Route::DB)) throw "InputBroadcastTask()";
+		if (!dispatcherHub.PopTask(DBtask, Route::DB)) throw "pop fail";
+		if (!input.target.room) throw "room nullptr";
+
+		DBtask->copyFrom(input);
+		//broadcast->packet->set_process_result(PacketResult::BroadCast);
+
+		if (!dispatcherHub.EnqueueProcess(std::move(DBtask), Route::DB)) throw "InputBroadcastTask()";
 	}
 	catch (const char* msg)
 	{
-		logs.log_error(msg, "BroadCastThis()");
+		if (DBtask) dispatcherHub.PushTask(std::move(DBtask), Route::DB);
+		logs.log_error(msg, "DBThis()");
 		return false;
 	}
 
@@ -126,44 +156,42 @@ void PacketGameProcess::initialize()
 	PacketProcess::initialize();
 	func_map.emplace(
 		PacketProcessKey{ PacketTypeGame::Hello, PacketResult::Try },
-		[this](TaskQueueInput* input) {return Hello(input); }
+		[this](Task& input) {return Hello(input); }
 	);
 
 	func_map.emplace(
 		PacketProcessKey{ PacketTypeGame::Bye, PacketResult::Try },
-		[this](TaskQueueInput* input) {return Bye(input); }
+		[this](Task& input) {return Bye(input); }
 	);
 
 	func_map.emplace(
 		PacketProcessKey{ PacketTypeGame::Move, PacketResult::Try },
-		[this](TaskQueueInput* input) {return Move(input); }
+		[this](Task& input) {return Move(input); }
 	);
 
 	func_map.emplace(
 		PacketProcessKey{ PacketTypeGame::FireBullet, PacketResult::Try },
-		[this](TaskQueueInput* input) {return FireBullet(input); }
+		[this](Task& input) {return FireBullet(input); }
 	);
 
 	func_map.emplace(
 		PacketProcessKey{ PacketTypeGame::Die, PacketResult::Try },
-		[this](TaskQueueInput* input) {return Die(input); }
+		[this](Task& input) {return Die(input); }
 	);
 
 	func_map.emplace(
 		PacketProcessKey{ PacketTypeGame::Resurrect, PacketResult::Try },
-		[this](TaskQueueInput* input) {return Resurrect(input); }
+		[this](Task& input) {return Resurrect(input); }
 	);
 
 	isInitialized = true;
 }
 
-
-
-bool PacketGameProcess::Hello(TaskQueueInput* input)
+bool PacketGameProcess::Hello(Task& input)
 {
 	try
 	{
-		input->packet->setClientID(input->sessionInfo->id);
+		input.packet->setClientID(input.sessionInfo->id);
 
 		std::vector<SOCKETINFO*> allClient;
 		Room* room = roomManager.GetRoom(0);
@@ -173,101 +201,101 @@ bool PacketGameProcess::Hello(TaskQueueInput* input)
 		for (SOCKETINFO* info : allClient)
 		{
 			if (!info->acceptCompleted || info->isBroadcast) continue;
-			input->packet->inputDataInt(info->id, offset);
+			input.packet->inputDataInt(info->id, offset);
 		}
 
 		if (!BroadCastThis(input, 0)) throw "Broadcast Fail!";
-		input->packet->set_process_result(PacketResult::Success);
+		input.packet->set_process_result(PacketResult::Success);
 	}
 	catch (const char* msg)
 	{
 		logs.log_error(msg, "HelloClient()");
-		input->packet->set_process_result(PacketResult::Fail);
+		input.packet->set_process_result(PacketResult::Fail);
 		return false;
 	}
 
 	return true;
 }
 
-bool PacketGameProcess::Bye(TaskQueueInput* input)
+bool PacketGameProcess::Bye(Task& input)
 {
 	try
 	{
 		if (!BroadCastThis(input, 0)) throw "Broadcast Fail!";
-		input->packet->set_process_result(PacketResult::Success);
+		input.packet->set_process_result(PacketResult::Success);
 	}
 	catch (const char* msg)
 	{
 		logs.log_error(msg, "Bye");
-		input->packet->set_process_result(PacketResult::Fail);
+		input.packet->set_process_result(PacketResult::Fail);
 		return false;
 	}
 	return true;
 }
 
 
-bool PacketGameProcess::Move(TaskQueueInput* input)
+bool PacketGameProcess::Move(Task& input)
 {
 	try
 	{
 		if (!BroadCastThis(input, 0)) throw "Broadcast Fail!";
-		input->packet->set_process_result(PacketResult::Success);
+		input.packet->set_process_result(PacketResult::Success);
 	}
 	catch (const char* msg)
 	{
 		logs.log_error(msg, "Move");
-		input->packet->set_process_result(PacketResult::Fail);
+		input.packet->set_process_result(PacketResult::Fail);
 		return false;
 	}
 
 	return true;
 }
 
-bool PacketGameProcess::FireBullet(TaskQueueInput* input)
+bool PacketGameProcess::FireBullet(Task& input)
 {
 	try
 	{
 		//gameDispatcher.InputDBTask(input); //작업을 DB에 저장하기 위해 전송함
 		BroadCastThis(input, 0); // 특정 작업을 타 클라이언트에게 broadcast (0: Global broadcasting)
-		input->packet->set_process_result(PacketResult::Success);
+		input.packet->set_process_result(PacketResult::Success);
 	}
 	catch (const char* msg)
 	{
 		logs.log_error(msg, "FireBullet");
-		input->packet->set_process_result(PacketResult::Fail);
+		input.packet->set_process_result(PacketResult::Fail);
 		return false;
 	}
 
 	return true;
 }
 
-bool PacketGameProcess::Die(TaskQueueInput* input)
+bool PacketGameProcess::Die(Task& input)
 {
 	try
 	{
 		if (!BroadCastThis(input, 0)) throw "Broadcast Fail!";
-		input->packet->set_process_result(PacketResult::Success);
+		input.packet->set_process_result(PacketResult::Success);
 	}
 	catch (const char* msg)
 	{
 		logs.log_error(msg, "Die");
-		input->packet->set_process_result(PacketResult::Fail);
+		input.packet->set_process_result(PacketResult::Fail);
 		return false;
 	}
 	return true;
 }
 
-bool PacketGameProcess::Resurrect(TaskQueueInput* input)
+bool PacketGameProcess::Resurrect(Task& input)
 {
 	try
 	{
 		if (!BroadCastThis(input, 0)) throw "Broadcast Fail!";
-		input->packet->set_process_result(PacketResult::Success);
+		input.packet->set_process_result(PacketResult::Success);
 	}
 	catch (const char* msg)
 	{
 		logs.log_error(msg, "Resurrect");
-		input->packet->set_process_result(PacketResult::Fail);
+		input.packet->set_process_result(PacketResult::Fail);
 		return false;
 	}
 	return true;

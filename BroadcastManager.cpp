@@ -9,24 +9,22 @@ bool BroadcastManager::initialize()
 	return true;
 }
 
-bool BroadcastManager::SendAllRoomMember(TaskQueueInput* info)
+bool BroadcastManager::SendAllRoomMember(const Task& info)
 {
-	if (info == nullptr) return false;
-
 	INT retval;
 	DWORD sendbytes;
 	char buffer[2048]; // 미리 버퍼에 serialize
 
-	if (!info->packet->serialize(buffer)) return false; // 패킷이 망가져있을 경우 보내지 않기
-	ULONG len = info->packet->getPacketSerializedLength();
+	if (!info.packet->serialize(buffer)) return false; // 패킷이 망가져있을 경우 보내지 않기
+	ULONG len = info.packet->getPacketSerializedLength();
 
 	SOCKETINFO* forUDPconnection = nullptr;
 
-	if (info->sessionType == SESSION_TYPE::TCP)
+	if (info.sessionType == SESSION_TYPE::TCP)
 	{
 
 		std::vector<SOCKETINFO*> members;
-		info->target.room->CopySOCKETINFOPointers(members);
+		info.target.room->CopySOCKETINFOPointers(members);
 
 		for (SOCKETINFO* ptr : members)
 		{
@@ -34,7 +32,7 @@ bool BroadcastManager::SendAllRoomMember(TaskQueueInput* info)
 			{
 				if (ptr == nullptr) throw "nullptr";
 				if (!ptr->acceptCompleted.load()) continue;
-				if (info->packet->getClientID() == ptr->id) continue;
+				if (info.packet->getClientID() == ptr->id) continue;
 
 				ptr->response.reset_overlapped(ptr->response.IO_buffer, len, false); // wsabuf 초기화
 				memcpy(ptr->response.IO_buffer, buffer, len); // 미리 serialize한 버퍼를 복사
@@ -63,13 +61,13 @@ bool BroadcastManager::SendAllRoomMember(TaskQueueInput* info)
 				logs.log(msg, "SendAllRoomMember()");
 			}
 		}
-		if (info) dispatcherHub.ReturnTask(info, Route::Broadcast);
+		//if (info) dispatcherHub.PushTask(std::move(info), Route::Broadcast);
 	}
 
-	else if (info->sessionType == SESSION_TYPE::UDP)
+	else if (info.sessionType == SESSION_TYPE::UDP)
 	{
 		std::vector<SOCKADDR_IN> udpmember;
-		info->target.room->CopyMemberPointersUDP(udpmember);
+		info.target.room->CopyMemberPointersUDP(udpmember);
 
 		for (SOCKADDR_IN udp : udpmember)
 		{
@@ -112,11 +110,11 @@ bool BroadcastManager::SendAllRoomMember(TaskQueueInput* info)
 				logs.log(msg, "SendAllRoomMember()");
 			}
 		}
-		if (info) dispatcherHub.ReturnTask(info, Route::Broadcast);
+		//if (info) dispatcherHub.PushTask(std::move(info), Route::Broadcast);
 	}
 	else
 	{
-		if (info) dispatcherHub.ReturnTask(info, Route::Broadcast);
+		//if (info) dispatcherHub.PushTask(std::move(info), Route::Broadcast);
 		return false;
 	}
 	return true;
@@ -126,7 +124,7 @@ unsigned int BroadcastManager::workLoop()
 {
 	while (!exit_flag.load())
 	{
-		TaskQueueInput* output = nullptr;
+		TaskPTR output = nullptr;
 		
 		try
 		{
@@ -137,7 +135,7 @@ unsigned int BroadcastManager::workLoop()
 			switch (output->target.type)
 			{
 			default:
-				if (!SendAllRoomMember(output)) throw "SendAllRoomMember()";
+				if (!SendAllRoomMember(*output)) throw "SendAllRoomMember()";
 				break;
 			}
 		}
@@ -148,7 +146,7 @@ unsigned int BroadcastManager::workLoop()
 
 		if (output != nullptr)
 		{
-			dispatcherHub.ReturnTask(output, Route::Broadcast);
+			dispatcherHub.PushTask(std::move(output), Route::Broadcast);
 		}
 	}
 	return 0;
