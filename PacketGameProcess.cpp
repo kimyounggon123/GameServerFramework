@@ -1,106 +1,4 @@
 #include "PacketGameProcess.h"
-DispatcherHub* DispatcherHub::instance = nullptr;
-bool DispatcherHub::Initialize()
-{
-	DBDispatcher = new DispatcherUnit();
-	BroadcastDispatcher = new DispatcherUnit();
-
-	if (!DBDispatcher || !BroadcastDispatcher) return false;
-
-	DBDispatcher->initialize();
-	BroadcastDispatcher->initialize();
-
-	return true;
-}
-
-bool DispatcherHub::EnqueueProcess(TaskPTR input, const Route& route)
-{
-	if (input == nullptr) return false;
-
-	DispatcherUnit* where = nullptr;
-	int32_t packetResult= 0;
-
-	switch (route)
-	{
-	case Route::Broadcast:
-		where = BroadcastDispatcher;
-		packetResult = PacketResult::BroadCast;
-		break;
-	case Route::DB:
-		where = DBDispatcher;
-		packetResult = PacketResult::WaitDatabase;
-		break;
-	}
-	if (where == nullptr) return false;
-
-
-	input->packet->set_process_result(packetResult);
-	if (!where->enqueue(std::move(input)))
-	{
-		where->pushPool(std::move(input));
-		return false;
-	}
-
-	return true;
-}
-
-bool DispatcherHub::DequeueProcess(TaskPTR& output, const Route& route)
-{
-	DispatcherUnit* where = nullptr;
-
-	switch (route)
-	{
-	case Route::Broadcast:
-		where = BroadcastDispatcher;
-		break;
-	case Route::DB:
-		where = DBDispatcher;
-		break;
-	}
-	if (where == nullptr) return false;
-
-	return where->dequeue(output);
-}
-
-bool DispatcherHub::PushTask(TaskPTR returnThis, const Route& route)
-{
-	bool result = false;
-
-	switch (route)
-	{
-	case Route::Broadcast:
-		result = BroadcastDispatcher->pushPool(std::move(returnThis));
-		break;
-
-	case Route::DB:
-		result = DBDispatcher->pushPool(std::move(returnThis));
-		break;
-
-	default:
-		break;
-	}
-
-	return result;
-}
-bool DispatcherHub::PopTask(TaskPTR& returnThis, const Route& route)
-{
-	bool result = false;
-
-	switch (route)
-	{
-	case Route::Broadcast:
-		result = BroadcastDispatcher->popPool(returnThis);
-		break;
-
-	case Route::DB:
-		result = DBDispatcher->popPool(returnThis);
-		break;
-
-	default:
-		break;
-	}
-	return result;
-}
 
 bool PacketGameProcess::BroadCastThis(Task& input, int RoomID)
 {
@@ -119,7 +17,6 @@ bool PacketGameProcess::BroadCastThis(Task& input, int RoomID)
 	}
 	catch (const char* msg)
 	{
-		if (broadcast) dispatcherHub.PushTask(std::move(broadcast), Route::Broadcast);
 		logs.log_error(msg, "BroadCastThis()");
 		return false;
 	}
@@ -142,7 +39,6 @@ bool PacketGameProcess::DBThis(Task& input)
 	}
 	catch (const char* msg)
 	{
-		if (DBtask) dispatcherHub.PushTask(std::move(DBtask), Route::DB);
 		logs.log_error(msg, "DBThis()");
 		return false;
 	}

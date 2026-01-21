@@ -131,6 +131,7 @@
   <ItemGroup>
     <ClCompile Include="BroadcastManager.cpp" />
     <ClCompile Include="DBconnector.cpp" />
+    <ClCompile Include="DispatcherHub.cpp" />
     <ClCompile Include="Frame.cpp" />
     <ClCompile Include="FPSRoom.cpp" />
     <ClCompile Include="GameServerFramework.cpp" />
@@ -142,6 +143,7 @@
   <ItemGroup>
     <ClInclude Include="BroadcastManager.h" />
     <ClInclude Include="DBconnector.h" />
+    <ClInclude Include="DispatcherHub.h" />
     <ClInclude Include="Frame.h" />
     <ClInclude Include="FPSRoom.h" />
     <ClInclude Include="GameServerFramework.h" />

@@ -5,7 +5,7 @@ DBconnector::DBconnector(USHORT serverPort):
 	exit_flag(false), sock(INVALID_SOCKET), addr{}, logs(Logs::getInstance()), 
 	serverPort(serverPort),
 	sessionManager(IOCPSessionManager::getInstance()), 
-	basicDispatcher(Dispatcher::getInstance()), dispatcherHub(DispatcherHub::getInstance()),
+	dispatcherHub(DispatcherHub::getInstance()),
 	hThreads{}, dwThreadID{}
 {
 
@@ -97,18 +97,18 @@ bool DBconnector::make_pk_and_push(char* recv_buf, int recv_len, size_t& offset)
 
 	try {
 		while (recv_len - offset > 0) {
-			if (!basicDispatcher.pop(input, TaskInformation::PacketProcess)) throw "Memory limit";
+			if (!dispatcherHub.PopTask(input, Route::PacketProcess)) throw "Memory limit";
 			if (input == nullptr) throw "input is nullptr!";
 
 			ERROR_CODE code = input->packet->deserialize(recv_buf, recv_len, offset);
 			if (code == ERROR_CODE::NEED_EXTRA_DATA)
 			{
-				basicDispatcher.push(std::move(input), TaskInformation::PacketProcess);
+				dispatcherHub.PushTask(std::move(input), Route::PacketProcess);
 				break;
 			}
 			else if (code != ERROR_CODE::SUCCESS)
 			{
-				basicDispatcher.push(std::move(input), TaskInformation::PacketProcess);
+				dispatcherHub.PushTask(std::move(input), Route::PacketProcess);
 				offset += 1; // 한 바이트씩 버리면서 다음 패킷 탐색
 				resyncCount++;
 				if (resyncCount >= 5)
@@ -125,12 +125,11 @@ bool DBconnector::make_pk_and_push(char* recv_buf, int recv_len, size_t& offset)
 			if (!sessionManager.find_socketinfo(input->packet->getClientID(), whoSendPacket)) throw "non-exist client";
 
 			input->sessionInfo = whoSendPacket;
-			if (!basicDispatcher.enqueue(std::move(input), TaskInformation::PacketProcess)) throw "enqueue()";
+			if (!dispatcherHub.EnqueueProcess(std::move(input), Route::PacketProcess)) throw "enqueue()";
 		}
 	}
 
 	catch (const char* msg) {
-		if (input != nullptr) basicDispatcher.push(std::move(input), TaskInformation::PacketProcess);
 		logs.log_error(msg, "DBconnector");
 		result = false;
 	}
@@ -178,6 +177,7 @@ unsigned int DBconnector::recvThread(LPVOID lpParam)
 	}
 	return 0;
 }
+
 unsigned int DBconnector::sendThread(LPVOID lpParam)
 {
 	DBconnector* This = reinterpret_cast<DBconnector*>(lpParam);

@@ -30,7 +30,6 @@ class DBconnector
 	IOCPSessionManager& sessionManager;
 	Logs& logs;
 
-	Dispatcher& basicDispatcher;
 	DispatcherHub& dispatcherHub;
 
 	bool make_pk_and_push(char* recv_buf, int recv_len, size_t& offset);
