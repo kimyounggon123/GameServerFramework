@@ -60,9 +60,6 @@
     <ClCompile Include="FPSRoom.cpp">
       <Filter>소스 파일\Room</Filter>
     </ClCompile>
-    <ClCompile Include="DispatcherHub.cpp">
-      <Filter>소스 파일\Server</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="PacketGameProcess.h">
@@ -88,9 +85,6 @@
     </ClInclude>
     <ClInclude Include="FPSRoom.h">
       <Filter>헤더 파일\Room</Filter>
-    </ClInclude>
-    <ClInclude Include="DispatcherHub.h">
-      <Filter>헤더 파일\Server</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

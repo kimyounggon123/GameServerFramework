@@ -2,21 +2,28 @@
 
 bool PacketGameProcess::BroadCastThis(Task& input, int RoomID)
 {
-	TaskPTR broadcast = nullptr;
+	TaskPTR broadcastTask = nullptr;
 	try
 	{
-		if (!dispatcherHub.PopTask(broadcast, Route::Broadcast)) throw "pop fail";
+		if (!dispatcherHub.BorrowTaskPTR(broadcastTask, DispatcherID_EX::Broadcast)) throw "pop fail";
 
 		input.target.room = roomManager.GetRoom(RoomID);
 		if (!input.target.room) throw "room nullptr";
 
-		broadcast->copyFrom(input);
-		//broadcast->packet->set_process_result(PacketResult::BroadCast);
+		broadcastTask->copyFrom(input);
+		broadcastTask->packet->set_process_result(PacketResult::BroadCast);
 
-		if (!dispatcherHub.EnqueueProcess(std::move(broadcast), Route::Broadcast)) throw "InputBroadcastTask()";
+		if (!dispatcherHub.EnqueueTaskPTR(std::move(broadcastTask), DispatcherID_EX::Broadcast)) throw "InputBroadcastTask()";
 	}
 	catch (const char* msg)
 	{
+		/*
+		if (broadcastTask != nullptr)
+		{
+			dispatcherHub.ReturnTaskPTR(std::move(broadcastTask), DispatcherID_EX::Broadcast);
+		}
+		*/
+
 		logs.log_error(msg, "BroadCastThis()");
 		return false;
 	}
@@ -29,16 +36,22 @@ bool PacketGameProcess::DBThis(Task& input)
 	TaskPTR DBtask = nullptr;
 	try
 	{
-		if (!dispatcherHub.PopTask(DBtask, Route::DB)) throw "pop fail";
+		if (!dispatcherHub.BorrowTaskPTR(DBtask, DispatcherID_EX::Database)) throw "pop fail";
 		if (!input.target.room) throw "room nullptr";
 
 		DBtask->copyFrom(input);
-		//broadcast->packet->set_process_result(PacketResult::BroadCast);
+		DBtask->packet->set_process_result(PacketResult::WaitDatabase);
 
-		if (!dispatcherHub.EnqueueProcess(std::move(DBtask), Route::DB)) throw "InputBroadcastTask()";
+		if (!dispatcherHub.EnqueueTaskPTR(std::move(DBtask), DispatcherID_EX::Database)) throw "InputBroadcastTask()";
 	}
 	catch (const char* msg)
 	{
+		/*
+		if (DBtask != nullptr)
+		{
+			dispatcherHub.ReturnTaskPTR(std::move(DBtask), DispatcherID_EX::Database);
+		}
+		*/
 		logs.log_error(msg, "DBThis()");
 		return false;
 	}

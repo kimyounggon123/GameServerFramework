@@ -43,7 +43,17 @@ bool GameServerFramework::Start()
 }
 void GameServerFramework::Quit()
 {
+	
+	if (broadcaster)
+	{
+		broadcaster->Quit();
+		_tprintf(_T("Leave Broadcaster.\n"));
+	}
+
+	if (dbConnector)
+	{
+		dbConnector->Quit();
+		_tprintf(_T("Leave DB Connector.\n"));
+	}
 	ServerFramework::Quit();
-	if (broadcaster) broadcaster->Quit();
-	if (dbConnector) dbConnector->Quit();
 }

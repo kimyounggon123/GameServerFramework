@@ -4,7 +4,9 @@
 bool BroadcastManager::initialize()
 {
 	if (!ThreadPool::initialize()) return false;
-	dispatcherHub.Initialize();
+
+	dispatcherHub.AddNewDispatcher(DispatcherID_EX::Broadcast);
+
 	sessionManager.MakeSOCKETINFOforUDPbroadcast(120);
 	return true;
 }
@@ -128,12 +130,16 @@ unsigned int BroadcastManager::workLoop()
 		
 		try
 		{
-			if (!dispatcherHub.DequeueProcess(output, Route::Broadcast)) continue;
+			if (!dispatcherHub.DequeueTaskPTR(output, DispatcherID_EX::Broadcast)) continue;
 			if (output == nullptr) throw "output error";
 			if (output->isInvalid()) throw "output field error";
 
 			switch (output->target.type)
 			{
+			case TARGET_TYPE::Single:
+				break;
+			case TARGET_TYPE::Room:
+				break;
 			default:
 				if (!SendAllRoomMember(*output)) throw "SendAllRoomMember()";
 				break;
@@ -146,7 +152,7 @@ unsigned int BroadcastManager::workLoop()
 
 		if (output != nullptr)
 		{
-			dispatcherHub.PushTask(std::move(output), Route::Broadcast);
+			dispatcherHub.ReturnTaskPTR(std::move(output), DispatcherID_EX::Broadcast);
 		}
 	}
 	return 0;

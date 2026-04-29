@@ -4,9 +4,16 @@
 #include "PacketProcess.h"
 #include "RoomManager.h"
 #include "PacketIDExpand.h"
-#include "DispatcherHub.h"
+#include "Dispatcher.h"
 
 
+
+struct DispatcherID_EX
+{
+	static constexpr int32_t Base =			100;
+	static constexpr int32_t Broadcast =	Base + 1;
+	static constexpr int32_t Database =		Base + 2;
+};
 
 class PacketGameProcess : public PacketProcess
 {

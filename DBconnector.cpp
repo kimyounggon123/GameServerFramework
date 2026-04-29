@@ -24,6 +24,8 @@ DBconnector::~DBconnector()
 bool DBconnector::initialize()
 {
 	try {
+		dispatcherHub.AddNewDispatcher(DispatcherID_EX::Database);
+
 		sock = socket(AF_INET, SOCK_STREAM, 0);
 		if (sock == INVALID_SOCKET) throw "[DBconnector] socket()";
 
@@ -79,6 +81,7 @@ bool DBconnector::Start()
 
 	return true;
 }
+
 void DBconnector::Quit()
 {
 	exit_flag.store(false);
@@ -97,18 +100,18 @@ bool DBconnector::make_pk_and_push(char* recv_buf, int recv_len, size_t& offset)
 
 	try {
 		while (recv_len - offset > 0) {
-			if (!dispatcherHub.PopTask(input, Route::PacketProcess)) throw "Memory limit";
+			if (!dispatcherHub.BorrowTaskPTR(input, DispatcherID::ServerToProcess)) throw "Memory limit";
 			if (input == nullptr) throw "input is nullptr!";
 
 			ERROR_CODE code = input->packet->deserialize(recv_buf, recv_len, offset);
 			if (code == ERROR_CODE::NEED_EXTRA_DATA)
 			{
-				dispatcherHub.PushTask(std::move(input), Route::PacketProcess);
+				dispatcherHub.ReturnTaskPTR(std::move(input), DispatcherID::ServerToProcess);
 				break;
 			}
 			else if (code != ERROR_CODE::SUCCESS)
 			{
-				dispatcherHub.PushTask(std::move(input), Route::PacketProcess);
+				dispatcherHub.ReturnTaskPTR(std::move(input), DispatcherID::ServerToProcess);
 				offset += 1; // 한 바이트씩 버리면서 다음 패킷 탐색
 				resyncCount++;
 				if (resyncCount >= 5)
@@ -125,7 +128,7 @@ bool DBconnector::make_pk_and_push(char* recv_buf, int recv_len, size_t& offset)
 			if (!sessionManager.find_socketinfo(input->packet->getClientID(), whoSendPacket)) throw "non-exist client";
 
 			input->sessionInfo = whoSendPacket;
-			if (!dispatcherHub.EnqueueProcess(std::move(input), Route::PacketProcess)) throw "enqueue()";
+			if (!dispatcherHub.EnqueueTaskPTR(std::move(input), DispatcherID::ServerToProcess)) throw "enqueue()";
 		}
 	}
 
@@ -191,7 +194,7 @@ unsigned int DBconnector::sendThread(LPVOID lpParam)
 	{
 		TaskPTR output = nullptr;
 		try {
-			if (!dispatcherHub.DequeueProcess(output, Route::DB)) continue;
+			if (!dispatcherHub.DequeueTaskPTR(output, DispatcherID_EX::Database)) continue;
 
 			if (output == nullptr) throw "output error";
 			if (output->isInvalid()) throw "output field error";
@@ -209,7 +212,7 @@ unsigned int DBconnector::sendThread(LPVOID lpParam)
 			logs.log_error(msg, "DBconnector");
 		}
 
-		if (output != nullptr)	dispatcherHub.PushTask(std::move(output), Route::DB);
+		if (output != nullptr)	dispatcherHub.ReturnTaskPTR(std::move(output), DispatcherID_EX::Database);
 	}
 	return 0;
 }
