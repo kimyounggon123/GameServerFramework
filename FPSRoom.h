@@ -1,9 +1,9 @@
 #ifndef _FPSROOM_H
 #define _FPSROOM_H
 
-#include "SOCKETINFO.h"
-
+#include "Server/Module/SOCKETINFO.h"
 #include "Frame.h"
+
 class FPSRoom : public Room
 {
 	/*

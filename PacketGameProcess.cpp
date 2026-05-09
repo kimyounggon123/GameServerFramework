@@ -1,63 +1,6 @@
 #include "PacketGameProcess.h"
 
-bool PacketGameProcess::BroadCastThis(Task& input, int RoomID)
-{
-	TaskPTR broadcastTask = nullptr;
-	try
-	{
-		if (!dispatcherHub.BorrowTaskPTR(broadcastTask, DispatcherID_EX::Broadcast)) throw "pop fail";
 
-		input.target.room = roomManager.GetRoom(RoomID);
-		if (!input.target.room) throw "room nullptr";
-
-		broadcastTask->copyFrom(input);
-		broadcastTask->packet->set_process_result(PacketResult::BroadCast);
-
-		if (!dispatcherHub.EnqueueTaskPTR(std::move(broadcastTask), DispatcherID_EX::Broadcast)) throw "InputBroadcastTask()";
-	}
-	catch (const char* msg)
-	{
-		/*
-		if (broadcastTask != nullptr)
-		{
-			dispatcherHub.ReturnTaskPTR(std::move(broadcastTask), DispatcherID_EX::Broadcast);
-		}
-		*/
-
-		logs.log_error(msg, "BroadCastThis()");
-		return false;
-	}
-
-	return true;
-}
-
-bool PacketGameProcess::DBThis(Task& input)
-{
-	TaskPTR DBtask = nullptr;
-	try
-	{
-		if (!dispatcherHub.BorrowTaskPTR(DBtask, DispatcherID_EX::Database)) throw "pop fail";
-		if (!input.target.room) throw "room nullptr";
-
-		DBtask->copyFrom(input);
-		DBtask->packet->set_process_result(PacketResult::WaitDatabase);
-
-		if (!dispatcherHub.EnqueueTaskPTR(std::move(DBtask), DispatcherID_EX::Database)) throw "InputBroadcastTask()";
-	}
-	catch (const char* msg)
-	{
-		/*
-		if (DBtask != nullptr)
-		{
-			dispatcherHub.ReturnTaskPTR(std::move(DBtask), DispatcherID_EX::Database);
-		}
-		*/
-		logs.log_error(msg, "DBThis()");
-		return false;
-	}
-
-	return true;
-}
 
 
 void PacketGameProcess::initialize()
@@ -109,12 +52,17 @@ bool PacketGameProcess::Hello(Task& input)
 		size_t offset = 0;
 		for (SOCKETINFO* info : allClient)
 		{
-			if (!info->acceptCompleted || info->isBroadcast) continue;
+			if (!info->acceptCompleted || info->isDummy) continue;
 			input.packet->inputDataInt(info->id, offset);
 		}
 
-		if (!BroadCastThis(input, 0)) throw "Broadcast Fail!";
+		//if (!BroadCastThis(input, 0)) throw "Broadcast Fail!";
+
+		input.target.type = TARGET_TYPE::Room;
+		input.target.room = room;
+		input.broadcastFlag = true;
 		input.packet->set_process_result(PacketResult::Success);
+
 	}
 	catch (const char* msg)
 	{
@@ -130,7 +78,12 @@ bool PacketGameProcess::Bye(Task& input)
 {
 	try
 	{
-		if (!BroadCastThis(input, 0)) throw "Broadcast Fail!";
+		//if (!BroadCastThis(input, 0)) throw "Broadcast Fail!";
+		Room* room = roomManager.GetRoom(0);
+		input.target.type = TARGET_TYPE::Room;
+		input.target.room = room;
+		input.broadcastFlag = true;
+
 		input.packet->set_process_result(PacketResult::Success);
 	}
 	catch (const char* msg)
@@ -147,7 +100,12 @@ bool PacketGameProcess::Move(Task& input)
 {
 	try
 	{
-		if (!BroadCastThis(input, 0)) throw "Broadcast Fail!";
+		//if (!BroadCastThis(input, 0)) throw "Broadcast Fail!";
+		Room* room = roomManager.GetRoom(0);
+		input.target.type = TARGET_TYPE::Room;
+		input.target.room = room;
+		input.broadcastFlag = true;
+
 		input.packet->set_process_result(PacketResult::Success);
 	}
 	catch (const char* msg)
@@ -165,7 +123,13 @@ bool PacketGameProcess::FireBullet(Task& input)
 	try
 	{
 		//gameDispatcher.InputDBTask(input); //작업을 DB에 저장하기 위해 전송함
-		BroadCastThis(input, 0); // 특정 작업을 타 클라이언트에게 broadcast (0: Global broadcasting)
+		//BroadCastThis(input, 0); // 특정 작업을 타 클라이언트에게 broadcast (0: Global broadcasting)
+
+		Room* room = roomManager.GetRoom(0);
+		input.target.type = TARGET_TYPE::Room;
+		input.target.room = room;
+		input.broadcastFlag = true;
+
 		input.packet->set_process_result(PacketResult::Success);
 	}
 	catch (const char* msg)
@@ -182,7 +146,12 @@ bool PacketGameProcess::Die(Task& input)
 {
 	try
 	{
-		if (!BroadCastThis(input, 0)) throw "Broadcast Fail!";
+		//if (!BroadCastThis(input, 0)) throw "Broadcast Fail!";
+		Room* room = roomManager.GetRoom(0);
+		input.target.type = TARGET_TYPE::Room;
+		input.target.room = room;
+		input.broadcastFlag = true;
+
 		input.packet->set_process_result(PacketResult::Success);
 	}
 	catch (const char* msg)
@@ -198,7 +167,13 @@ bool PacketGameProcess::Resurrect(Task& input)
 {
 	try
 	{
-		if (!BroadCastThis(input, 0)) throw "Broadcast Fail!";
+		//if (!BroadCastThis(input, 0)) throw "Broadcast Fail!";
+
+		Room* room = roomManager.GetRoom(0);
+		input.target.type = TARGET_TYPE::Room;
+		input.target.room = room;
+		input.broadcastFlag = true;
+
 		input.packet->set_process_result(PacketResult::Success);
 	}
 	catch (const char* msg)
@@ -209,3 +184,4 @@ bool PacketGameProcess::Resurrect(Task& input)
 	}
 	return true;
 }
+

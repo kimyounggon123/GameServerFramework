@@ -102,7 +102,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>..\..\IOCPserver\IOCPserver</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\IOCPserver\IOCPserver;..\..\IOCPserver\IOCPserver\Server;..\..\IOCPserver\IOCPserver\Utils</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -129,25 +129,17 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="BroadcastManager.cpp" />
-    <ClCompile Include="DBconnector.cpp" />
     <ClCompile Include="Frame.cpp" />
     <ClCompile Include="FPSRoom.cpp" />
-    <ClCompile Include="GameServerFramework.cpp" />
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="PacketGameProcess.cpp" />
     <ClCompile Include="PacketIDExpand.cpp" />
-    <ClCompile Include="RoomManager.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="BroadcastManager.h" />
-    <ClInclude Include="DBconnector.h" />
     <ClInclude Include="Frame.h" />
     <ClInclude Include="FPSRoom.h" />
-    <ClInclude Include="GameServerFramework.h" />
     <ClInclude Include="PacketGameProcess.h" />
     <ClInclude Include="PacketIDExpand.h" />
-    <ClInclude Include="RoomManager.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

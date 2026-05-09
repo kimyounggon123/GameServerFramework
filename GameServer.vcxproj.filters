@@ -19,12 +19,6 @@
     <Filter Include="헤더 파일\Packet">
       <UniqueIdentifier>{9cd10387-6f2a-41aa-a966-21670f4a62fa}</UniqueIdentifier>
     </Filter>
-    <Filter Include="소스 파일\Server">
-      <UniqueIdentifier>{49ad2384-38c3-4f14-ae79-b57f62bb872f}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="헤더 파일\Server">
-      <UniqueIdentifier>{ff96af92-4759-4f37-9984-e003163c2399}</UniqueIdentifier>
-    </Filter>
     <Filter Include="소스 파일\Room">
       <UniqueIdentifier>{e13fd363-ed4c-4f8c-8324-4c7ea5721f8b}</UniqueIdentifier>
     </Filter>
@@ -39,18 +33,6 @@
     <ClCompile Include="PacketGameProcess.cpp">
       <Filter>소스 파일\Packet</Filter>
     </ClCompile>
-    <ClCompile Include="BroadcastManager.cpp">
-      <Filter>소스 파일\Server</Filter>
-    </ClCompile>
-    <ClCompile Include="DBconnector.cpp">
-      <Filter>소스 파일\Server</Filter>
-    </ClCompile>
-    <ClCompile Include="GameServerFramework.cpp">
-      <Filter>소스 파일</Filter>
-    </ClCompile>
-    <ClCompile Include="RoomManager.cpp">
-      <Filter>소스 파일\Room</Filter>
-    </ClCompile>
     <ClCompile Include="PacketIDExpand.cpp">
       <Filter>소스 파일\Packet</Filter>
     </ClCompile>
@@ -64,18 +46,6 @@
   <ItemGroup>
     <ClInclude Include="PacketGameProcess.h">
       <Filter>헤더 파일\Packet</Filter>
-    </ClInclude>
-    <ClInclude Include="BroadcastManager.h">
-      <Filter>헤더 파일\Server</Filter>
-    </ClInclude>
-    <ClInclude Include="DBconnector.h">
-      <Filter>헤더 파일\Server</Filter>
-    </ClInclude>
-    <ClInclude Include="GameServerFramework.h">
-      <Filter>헤더 파일</Filter>
-    </ClInclude>
-    <ClInclude Include="RoomManager.h">
-      <Filter>헤더 파일\Room</Filter>
     </ClInclude>
     <ClInclude Include="PacketIDExpand.h">
       <Filter>헤더 파일\Packet</Filter>

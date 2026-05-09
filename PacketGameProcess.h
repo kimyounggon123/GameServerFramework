@@ -1,27 +1,12 @@
 #ifndef _PACKETGAMEPROCESS_H
 #define _PACKETGAMEPROCESS_H
 
-#include "PacketProcess.h"
-#include "RoomManager.h"
+#include "Server/Module/PacketProcess.h"
 #include "PacketIDExpand.h"
-#include "Dispatcher.h"
 
-
-
-struct DispatcherID_EX
-{
-	static constexpr int32_t Base =			100;
-	static constexpr int32_t Broadcast =	Base + 1;
-	static constexpr int32_t Database =		Base + 2;
-};
 
 class PacketGameProcess : public PacketProcess
 {
-	DispatcherHub& dispatcherHub;
-	RoomManager& roomManager;
-
-	bool BroadCastThis(Task& input, int RoomID = 0);
-	bool DBThis(Task& input);
 
 	bool Hello(Task& input);
 	bool Bye(Task& input);
@@ -31,7 +16,7 @@ class PacketGameProcess : public PacketProcess
 	bool Resurrect(Task& input);
 
 public:
-	PacketGameProcess(): PacketProcess(), dispatcherHub(DispatcherHub::getInstance()), roomManager(RoomManager::getInstance())
+	PacketGameProcess(): PacketProcess()
 	{}
 
 	void initialize() override;

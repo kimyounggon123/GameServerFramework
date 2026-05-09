@@ -1,6 +1,6 @@
 #ifndef _PACKETIDEX_H
 #define _PACKETIDEX_H
-#include "PacketID.h"
+#include "Server/Packet/PacketID.h"
 
 // Headers
 struct PacketTypeGame

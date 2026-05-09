@@ -1,20 +1,21 @@
+#include "Utils/stdafx.h"
 #include "PacketGameProcess.h"
-#include <thread>
-#include "GameServerFramework.h"
-
+#include "ServerFramework.h"
 int main()
 {
+
 	PacketGameProcess* gameProc = new PacketGameProcess();
 	gameProc->initialize();
 
-	GameServerFramework* framework = new GameServerFramework(gameProc, 1000, 1001, 1002);
-	framework->initialize();
+	
+	ServerFramework* framework = new ServerFramework(std::move(gameProc), 1000, 1001, true, true);
+	framework->Initialize();
 	//framework->TurnOnDBconnector();
 
 	framework->Run();
 	SAFE_FREE(framework);
 	
-	
+
 	/*
 	Packet pk(0, PacketType::ServerIsClosed, PacketResult::Success);
 	size_t offset = 0;
